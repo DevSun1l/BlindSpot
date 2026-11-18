@@ -182,7 +182,10 @@ def main() -> None:
     ax.bar(acf.index, acf.values, color="#4C78A8")
     ax.set(title="Median autocorrelation of daily sales", xlabel="lag (days)", xticks=list(lags))
     save(fig, "07_autocorrelation.png")
-    out("- Supports lags 1, 2, 7 and 7/14-day rolling means if lag 1 and lag 7 stand out.")
+    peaks = [k for k in acf.index if (k == 1 or acf[k] > acf.get(k - 1, -1)) and acf[k] > acf.get(k + 1, -1)]
+    out(f"- Local peaks (higher than both neighbours) at lags {', '.join(map(str, peaks))}; "
+        f"lowest at lag(s) {', '.join(str(k) for k in acf.index if acf[k] == acf.min())}. "
+        "Peaks at 7 and 14 reflect the weekly cycle; this supports lags 1, 2, 7 and 7/14-day rolling means.")
 
     # 8. Weather -----------------------------------------------------------------------------
     out("\n## 8. Weather vs sales (clean days)")
