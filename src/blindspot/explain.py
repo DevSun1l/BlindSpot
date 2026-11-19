@@ -29,11 +29,12 @@ def explain_set(test: pd.DataFrame, n: int = 2000, seed: int = 42) -> pd.DataFra
             .sample(frac=frac, random_state=seed).sort_values(["series_id", "dt"]).reset_index(drop=True))
 
 
-def shap_values(booster: lgb.Booster, X: pd.DataFrame) -> tuple[pd.DataFrame, float]:
+def shap_values(booster: lgb.Booster, X: pd.DataFrame, features: list[str] | None = None) -> tuple[pd.DataFrame, float]:
+    cols = features or FEATURES
     ex = shap.TreeExplainer(booster, feature_perturbation="tree_path_dependent")
-    sv = ex.shap_values(X[FEATURES])
+    sv = ex.shap_values(X[cols])
     base = float(np.ravel(ex.expected_value)[0])
-    return pd.DataFrame(sv, columns=FEATURES, index=X.index), base
+    return pd.DataFrame(sv, columns=cols, index=X.index), base
 
 
 def grouped(sv: pd.DataFrame) -> pd.DataFrame:

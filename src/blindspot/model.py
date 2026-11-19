@@ -40,8 +40,8 @@ def base_params(p: dict) -> dict:
     return out
 
 
-def _dataset(df: pd.DataFrame, ref: lgb.Dataset | None = None) -> lgb.Dataset:
-    return lgb.Dataset(df[FEATURES], label=df["target"], categorical_feature=CATEGORICAL, reference=ref,
+def _dataset(df: pd.DataFrame, ref: lgb.Dataset | None = None, features: list[str] | None = None) -> lgb.Dataset:
+    return lgb.Dataset(df[features or FEATURES], label=df["target"], categorical_feature=CATEGORICAL, reference=ref,
                        free_raw_data=False)
 
 
@@ -63,13 +63,13 @@ def fit_and_validate(params: dict, fit: pd.DataFrame, valid: pd.DataFrame) -> tu
     return wape, n
 
 
-def train_final(params: dict, n_rounds: int, train: pd.DataFrame) -> lgb.Booster:
+def train_final(params: dict, n_rounds: int, train: pd.DataFrame, features: list[str] | None = None) -> lgb.Booster:
     p = base_params({k: v for k, v in params.items() if k != "n_estimators"})
-    return lgb.train(p, _dataset(train), num_boost_round=n_rounds)
+    return lgb.train(p, _dataset(train, features=features), num_boost_round=n_rounds)
 
 
-def predict(booster: lgb.Booster, df: pd.DataFrame) -> np.ndarray:
-    return np.clip(booster.predict(df[FEATURES]), 0, None)
+def predict(booster: lgb.Booster, df: pd.DataFrame, features: list[str] | None = None) -> np.ndarray:
+    return np.clip(booster.predict(df[features or FEATURES]), 0, None)
 
 
 def save_config(path: Path, cfg: dict) -> None:
