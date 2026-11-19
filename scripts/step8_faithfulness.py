@@ -1,11 +1,14 @@
-"""Step 8: faithfulness of SHAP explanations.
+"""Evaluate SHAP faithfulness via deletion/insertion curves and synthetic promotion recovery.
 
-Part 1  Deletion/insertion curves for models A, B, C on Step 7's explained rows (SHAP order vs random order).
-Part 2  Injected promotion with a KNOWN effect: rebuild A/B/C from modified truth, retrain with the frozen
-        Step 6 configuration, and check whether each model's SHAP and what-if recover the true effect.
+Part 1: Deletion and insertion curves for models A, B, and C on the explained
+        test sample, comparing |SHAP| ordering against random orderings.
+Part 2: Injected synthetic promotion (`test_promo`) with a known uplift,
+        measuring what-if and SHAP recovery across conditions A, B, and C.
 
-Outputs (outputs/): step8_faithfulness_report.md, step8_curves.png, step8_promo_recovery.png
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step8_faithfulness.py [--rows 500] [--effect 0.3] [--rate 0.2]
+Outputs (outputs/): step8_faithfulness_report.md, step8_results.csv,
+                    step8_curves.png, step8_promo_recovery.png
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step8_faithfulness.py [--rows 500] [--effect 0.3] [--rate 0.2]
 """
 from __future__ import annotations
 

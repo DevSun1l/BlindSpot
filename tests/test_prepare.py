@@ -1,4 +1,4 @@
-"""Step 2 tests: discount cleaning (synthetic) and the prepared panel (skipped if not built)."""
+"""Unit tests for discount cleaning and sampling, plus integration checks on the prepared panel."""
 import pandas as pd
 import pytest
 

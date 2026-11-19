@@ -1,14 +1,17 @@
-"""Step 11: experiment runner.
+"""End-to-end pipeline orchestrator and multi-seed robustness runner.
 
-1. Pipeline: re-runs Steps 3-10 in order (Step 6a tuning only with --retune), each in its own process, logging
-   to outputs/logs/. Stops at the first step that crashes or reports a failed check.
-2. Robustness: re-runs the whole A/B/C experiment in memory for several masking seeds (default 42 43 44 45)
-   and collects the headline numbers into one table. Seed 42 is the main run; its in-memory numbers are checked
-   against the files Steps 6-10 wrote, so the runner provably measures the same thing.
+1. Pipeline: executes steps 3-10 sequentially in isolated subprocesses (optionally
+   including step 6a with `--retune`), logging output to `outputs/logs/` and
+   halting on the first non-zero exit code or failed check.
+2. Robustness: runs the full A/B/C experiment in memory across multiple masking
+   seeds (default 42..45), verifies seed-42 parity with saved step 6-10 outputs,
+   and aggregates headline metrics into a summary table and figure.
 
-Outputs: outputs/step11_experiment_report.md, step11_results_table.csv, step11_seed_results.csv, step11_seeds.png,
-         outputs/logs/<step>.log
-Usage:   .\\.venv\\Scripts\\python.exe scripts\\step11_experiment.py [--skip-pipeline] [--retune] [--seeds 42 43 44 45]
+Outputs:
+  outputs/step11_experiment_report.md, step11_results_table.csv,
+  step11_seed_results.csv, step11_seeds.png, outputs/logs/<step>.log
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step11_experiment.py [--skip-pipeline] [--retune] [--seeds 42 43 44 45]
 """
 from __future__ import annotations
 
@@ -82,7 +85,7 @@ def run_pipeline(retune: bool) -> bool:
 
 
 def check_against_steps(res: pd.DataFrame) -> None:
-    """The in-memory seed-42 run must reproduce the numbers Steps 6, 7 and 10 saved."""
+    """Verify that the in-memory seed-42 run matches the metrics saved by steps 6, 7, and 10."""
     v = res[res.seed == 42].set_index(["condition", "metric"]).value
     s6 = pd.read_csv(OUT / "step6_results.csv")
     s6 = s6[s6.group == "all"]
@@ -93,7 +96,7 @@ def check_against_steps(res: pd.DataFrame) -> None:
     sv = {c: pd.read_parquet(PROCESSED_DIR / f"shap_{c}.parquet") for c in "ABC"}
     for c in "BC":
         ref = local_stability(sv["A"][FEATURES], sv[c][FEATURES]).spearman.mean()
-        # tolerance 1e-3: the saved SHAP files are stored at lower precision, which can swap near-tied ranks
+        # Allow 1e-3 tolerance because serialized SHAP tables can break near-ties slightly differently.
         check(abs(v[(c, "row_spearman_vs_A")] - ref) < 1e-3, f"seed 42 per-row SHAP agreement A vs {c} = Step 7 ({ref:.3f})")
     assert all((sv["A"][k] == sv[c][k]).all() for c in "BC" for k in keys)
     s10 = pd.read_csv(OUT / "step10_results.csv")

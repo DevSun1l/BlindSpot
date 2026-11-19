@@ -1,13 +1,14 @@
-"""Step 6b: train LightGBM A, B and C with the frozen configuration and score them on the test week.
+"""Train LightGBM models A, B, and C using the frozen configuration and evaluate on the test week.
 
-Each model is trained on all training targets (fit + validation days) of its condition, with the
-same parameters, number of rounds and seed. Test inputs are identical for all three models.
+Each model is fit on all training targets (fit + validation days) for its
+condition with identical hyperparameters, boosting rounds, and random seed.
 
 Outputs:
   outputs/models/lgb_A.txt, lgb_B.txt, lgb_C.txt
   data/processed/lgb_preds.parquet
   outputs/step6_results.csv, outputs/step6_report.md
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step6b_train.py
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step6b_train.py
 """
 from __future__ import annotations
 

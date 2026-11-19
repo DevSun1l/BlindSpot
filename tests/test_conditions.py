@@ -1,4 +1,4 @@
-"""Step 3 tests: censoring, masking and matched noise on small synthetic data."""
+"""Unit tests for stockout censoring, demand-linked masking, and matched-noise construction."""
 import numpy as np
 import pandas as pd
 
@@ -6,7 +6,7 @@ from blindspot.conditions import ConditionConfig, build_conditions, censor_day, 
 
 
 def test_censor_day_keeps_only_hours_before_stockout():
-    hs = np.arange(24, dtype=float)          # hour h sells h units
+    hs = np.arange(24, dtype=float)
     assert censor_day(hs, 6) == sum(range(6))
     assert censor_day(hs, 22) == sum(range(22))
 
@@ -16,9 +16,11 @@ def test_mask_probabilities_rate_and_demand_link():
     sid = pd.Series([0] * 8 + [1] * 8)
     p = mask_probabilities(sales, sid, rate=0.3, power=1.0)
     assert np.allclose(pd.Series(p).groupby(sid).mean(), 0.3)
-    assert np.all(np.diff(p[:8]) > 0)                       # higher sales -> higher chance
+    # Higher sales percentiles receive higher masking probability when power > 0.
+    assert np.all(np.diff(p[:8]) > 0)
+    # power=0 reduces to uniform masking at `rate`.
     flat = mask_probabilities(sales, sid, rate=0.3, power=0.0)
-    assert np.allclose(flat, 0.3)                           # power 0 = random masking
+    assert np.allclose(flat, 0.3)
 
 
 def _toy_panel(n_series=20, n_train=60, n_eval=7, seed=0):
@@ -28,7 +30,7 @@ def _toy_panel(n_series=20, n_train=60, n_eval=7, seed=0):
     for s in range(n_series):
         for d in range(n_train + n_eval):
             hs = rng.poisson(0.3, 24).astype(float)
-            out_ = d % 5 == 0                                    # every 5th day a real stockout
+            out_ = d % 5 == 0  # Real stockout every 5th day
             status = np.zeros(24, int)
             if out_:
                 status[rng.integers(6, 22):] = 1

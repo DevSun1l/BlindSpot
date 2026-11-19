@@ -1,16 +1,15 @@
-"""Step 7: SHAP explanations for models A, B, C on the same test rows, and their stability.
+"""Compute SHAP attributions and stability metrics for models A, B, and C on a shared test sample.
 
-Reference models A'1..A'3 (condition A retrained with other seeds) give the "noise floor": how much
-explanations change from retraining alone. Changes A->B and A->C are judged against it.
+Trains three seed-varied copies of condition A (A'1..A'3) to establish a
+retraining noise floor against which A-vs-B and A-vs-C explanation shifts are
+evaluated. Uses exact `TreeExplainer(..., feature_perturbation="tree_path_dependent")`
+to support LightGBM categorical splits without an external background dataset.
 
-Explainer: shap.TreeExplainer with feature_perturbation="tree_path_dependent" (exact; uses each model's
-own trees, so no background sample is needed and LightGBM categorical splits are supported). This
-replaces the "background sample" idea from the planning conversation; see the report for why.
-
-Outputs (all in outputs/ unless stated):
-  data/processed/shap_explain_rows.parquet, data/processed/shap_A|B|C.parquet (with series_id, dt keys)
+Outputs (under outputs/ unless noted):
+  data/processed/shap_explain_rows.parquet, data/processed/shap_A|B|C.parquet
   step7_shap_report.md, step7_global_importance.png, step7_groups_and_stability.png
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step7_shap.py [--rows 2000]
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step7_shap.py [--rows 2000]
 """
 from __future__ import annotations
 
@@ -99,7 +98,7 @@ def main() -> None:
     ties = np.mean([[len(np.unique(r)) < len(r) for r in sv[c].abs().to_numpy()] for c in "ABC"])
     check(ties == 0, "no tied |SHAP| values within a row (rank-based stability measures are well defined)")
 
-    # 1. Global importance -------------------------------------------------------------------------
+    # 1. Global feature importance
     out("\n## 1. Global importance\n")
     out("Raw = mean |SHAP| in sales units. Share = raw / sum over all features (scale-free). Use **share** to compare "
         f"models: B forecasts lower overall, so its SHAP values are smaller everywhere (mean total |SHAP| per row: "
@@ -115,7 +114,7 @@ def main() -> None:
     for c in ["A", "B", "C", "A'1"]:
         out(f"- Top 5 in {c}: {', '.join(imp[c].index[:5])}")
 
-    # 2. Groups ------------------------------------------------------------------------------------
+    # 2. Feature group importance shares
     out("\n## 2. Feature groups (share of mean |group SHAP|)\n")
     gshare = {c: gimp[c] / gimp[c].sum() for c in gimp}
     out("| group | A | B | C | A' (mean) |")
@@ -127,7 +126,7 @@ def main() -> None:
     out(f"\nGroup ranking identical in every model: {same_order}. (With only 5 groups a rank correlation is too coarse "
         "to be informative, so groups are compared by share only.)")
 
-    # 3. Global ranking stability ------------------------------------------------------------------
+    # 3. Global ranking stability
     out("\n## 3. Stability of the global feature ranking (22 features)\n")
     out("| comparison | Spearman | Kendall | top-5 overlap |")
     out("|---|---|---|---|")
@@ -138,7 +137,7 @@ def main() -> None:
         s = global_stability(imp[x], imp[y])
         out(f"| {x} vs {y} | {s['spearman']:.3f} | {s['kendall']:.3f} | {s['top5_overlap']:.0%} |")
 
-    # 4. Per-row stability -------------------------------------------------------------------------
+    # 4. Per-row explanation stability
     out("\n## 4. Stability of per-row explanations (same row, two models)\n")
     out("| comparison | mean per-row Spearman (95% CI) | mean top-3 overlap | rows with identical top-3 |")
     out("|---|---|---|---|")
@@ -160,7 +159,7 @@ def main() -> None:
         + ("The CI excludes 0: censoring changes explanations significantly more than matched noise."
            if lo > 0 else "The CI includes 0: no significant difference between censoring and noise."))
 
-    # 5. Drift of focus features -------------------------------------------------------------------
+    # 5. Relative importance-share drift on focus features
     out("\n## 5. Drift of focus features: change in importance share vs A\n")
     out("| feature | B vs A | C vs A | A' vs A (range over seeds) |")
     out("|---|---|---|---|")
@@ -178,7 +177,7 @@ def main() -> None:
         dsc, acf = sv[c].discount[promo].mean(), sv[c].activity_flag[act].mean()
         out(f"| {c} | {base[c]:.3f} | {dsc:+.4f} | {dsc / base[c]:+.1%} | {acf:+.4f} | {acf / base[c]:+.1%} |")
 
-    # 7. Accuracy vs explanation change -----------------------------------------------------------
+    # 7. Forecast accuracy change vs explanation shift
     res = pd.read_csv(OUT / "step6_results.csv").query("group=='all'").set_index("model")
     wa, wb, wc = (res.loc[m, "wape"] for m in ["LightGBM A (clean)", "LightGBM B (censored)", "LightGBM C (noise)"])
     out("\n## 7. Accuracy change vs explanation change\n")
@@ -190,7 +189,7 @@ def main() -> None:
         out(f"| {lbl} | {wchg} | {1 - rho:.3f} | {(1 - rho) / floor:.1f}x |")
     out(f"| A vs A' | (retrain only) | {floor:.3f} | 1.0x |")
 
-    # Charts ---------------------------------------------------------------------------------------
+    # Save global importance and group/stability figures.
     top = list(order[:12])
     fig, ax = plt.subplots(figsize=(12, 5.5))
     w = 0.2

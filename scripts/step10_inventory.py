@@ -1,14 +1,16 @@
-"""Step 10: inventory simulation (newsvendor) for models A, B, C.
+"""Simulate single-day newsvendor ordering decisions for models A, B, and C.
 
-Part 1  Everyday ordering: order = forecast + safety allowance (CR-quantile of each model's own validation errors),
-        scored against TRUE demand on the clean test days. Includes a sensitivity check over critical ratios and a
-        diagnostic where B's safety allowance is calibrated on true (uncensored) errors.
-Part 2  Promo decision (injected promo with a known +30% effect): a promo is planned for every clean test day;
-        each model orders on its own what-if forecast. Compared with ordering on the TRUE effect (same base forecast,
-        same safety), so the extra cost is caused only by the what-if error.
+Part 1: Everyday ordering (`Q = max(0, forecast + safety)`) scored against true
+        demand on clean test days, with critical-ratio sensitivity and a `B*`
+        diagnostic calibrating B's safety allowance on uncensored errors.
+Part 2: Planned promotion ordering on the injected-promo dataset, isolating
+        incremental cost caused by each model's what-if uplift error.
 
-Outputs: outputs/step10_inventory_report.md, step10_results.csv, step10_costs.png, step10_cr_sensitivity.png
-Usage:   .\\.venv\\Scripts\\python.exe scripts\\step10_inventory.py [--cu 1.0] [--co 0.5]
+Outputs:
+  outputs/step10_inventory_report.md, step10_results.csv,
+  step10_costs.png, step10_cr_sensitivity.png
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step10_inventory.py [--cu 1.0] [--co 0.5]
 """
 from __future__ import annotations
 
@@ -227,8 +229,9 @@ def main() -> None:
         "delivery; unsold units are wasted, unmet demand is lost; costs are relative. Sales units are normalised, so "
         "costs are reported per unit of true demand. Same ordering rule for every model.\n")
     val = validation_errors(load_config(MODELS / "lgb_config.json"))
+    # Persist out-of-sample validation residuals for interactive safety-stock calculation in the app.
     pd.concat([v.assign(condition=c) for c, v in val.items()]).to_parquet(
-        PROCESSED_DIR / "validation_errors.parquet", index=False)          # used by the Streamlit app
+        PROCESSED_DIR / "validation_errors.parquet", index=False)
     p1, _ = part1(val, a.cu, a.co)
     p2 = part2(p1["safeties"], a.cu, a.co)
     plots(p1, p2, a.cu, a.co)

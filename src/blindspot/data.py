@@ -1,9 +1,9 @@
-"""Loading FreshRetailNet-50K and caching it locally as parquet.
+"""Load FreshRetailNet-50K splits from Hugging Face and cache them as local Parquet files.
 
-Conventions taken from frn-50k-baseline (Apache 2.0, Dingdong-Inc):
+Dataset conventions (following frn-50k-baseline):
 - train split: 90 days per store-product series, ending 2024-06-25
-- eval split: the 7 following days (2024-06-26 onward)
-- hours_stock_status == 1 means out of stock; business hours are 6:00-22:00 (hour indices 6..21)
+- eval split: 7 subsequent days starting 2024-06-26
+- hours_stock_status == 1 indicates out of stock; business hours are 6:00-22:00 (indices 6..21)
 """
 from __future__ import annotations
 
@@ -25,19 +25,20 @@ EXPECTED_COLUMNS = [
 ]
 TRAIN_DAYS = 90
 EVAL_DAYS = 7
-BUSINESS_HOURS = slice(6, 22)  # hour indices 6..21 -> 16 hours, matches stock_hour6_22_cnt
+BUSINESS_HOURS = slice(6, 22)  # 16 business hours (06:00-21:59), aligned with stock_hour6_22_cnt
 OUT_OF_STOCK = 1
 
 
 def load_split(split: str, refresh: bool = False) -> pd.DataFrame:
-    """Return the 'train' or 'eval' split as a DataFrame, cached at data/raw/<split>.parquet."""
+    """Return the 'train' or 'eval' split as a DataFrame, reading from local Parquet cache when available."""
     if split not in ("train", "eval"):
         raise ValueError("split must be 'train' or 'eval'")
     path = RAW_DIR / f"{split}.parquet"
     if path.exists() and not refresh:
         return pd.read_parquet(path)
 
-    from datasets import load_dataset  # imported lazily: slow import
+    # Defer Hugging Face datasets import so cached reads stay fast.
+    from datasets import load_dataset
 
     df = load_dataset(DATASET_ID, split=split).to_pandas()
     df["dt"] = pd.to_datetime(df["dt"])

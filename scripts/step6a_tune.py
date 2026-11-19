@@ -1,15 +1,16 @@
-"""Step 6a: tune LightGBM on condition A's validation days; compare gbdt vs dart.
+"""Tune LightGBM hyperparameters on condition A's validation split, comparing GBDT and DART.
 
-Paired design: each sampled hyperparameter set is trained once with gbdt and once with dart,
-so the two boosting types are compared on equal terms. The best configuration overall is frozen
-for A, B and C. Tie rule (agreed): if dart's best is not better than gbdt's best by more than
-TIE_MARGIN, gbdt is chosen (faster, supports early stopping).
+Evaluates each sampled hyperparameter set with both GBDT and DART on the same
+fit/validation split. DART is selected only if it improves validation WAPE over
+GBDT by more than `TIE_MARGIN`; otherwise GBDT is preferred for speed and early
+stopping. The winning configuration is frozen and reused unchanged for A, B, and C.
 
 Outputs:
-  outputs/models/lgb_config.json    frozen configuration (params + number of rounds)
-  outputs/step6a_tuning.csv         every trial
+  outputs/models/lgb_config.json    frozen configuration (params + boosting rounds)
+  outputs/step6a_tuning.csv         trial-level results
   outputs/step6a_tuning_report.md
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step6a_tune.py [--trials 20]
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step6a_tune.py [--trials 20]
 """
 from __future__ import annotations
 
@@ -35,7 +36,7 @@ def sample_params(rng: np.random.Generator) -> dict:
         "feature_fraction": float(rng.choice([0.6, 0.8, 1.0])),
         "bagging_fraction": float(rng.choice([0.7, 0.85, 1.0])),
         "lambda_l2": float(rng.choice([0.0, 1.0, 10.0])),
-        "n_estimators": int(rng.choice([300, 600, 1000])),   # used by dart only
+        "n_estimators": int(rng.choice([300, 600, 1000])),  # Used by DART only; GBDT uses early stopping
     }
 
 

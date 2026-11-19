@@ -1,6 +1,7 @@
-"""Step 12: data helpers for the Streamlit app (pure functions, no Streamlit imports, so they can be tested).
+"""Data loading and view-model helpers for the Streamlit application.
 
-The app only READS what Steps 3-11 saved; it never retrains anything.
+Kept free of Streamlit imports so all transformation logic is unit-testable.
+Reads precomputed pipeline artifacts from disk without retraining models.
 """
 from __future__ import annotations
 
@@ -23,9 +24,8 @@ COLORS = {"A": "#4C78A8", "B": "#E45756", "C": "#F58518"}
 HISTORY_COLS = ["series_id", "dt", "split", "sales_true", "is_clean_day", "is_masked", "discount", "activity_flag"]
 
 
-# ---------------------------------------------------------------- loading
 def load_assets() -> dict:
-    """Everything the app needs, read from disk once."""
+    """Load precomputed datasets, trained LightGBM boosters, SHAP tables, and summary CSVs."""
     feats = pd.read_parquet(PROCESSED_DIR / "features_A.parquet")
     cond = pd.read_parquet(PROCESSED_DIR / "conditions.parquet",
                            columns=["series_id", "dt", "sales_B", "sales_C", "is_stockout_day", "stockout_hours"])
@@ -48,16 +48,15 @@ def _read_csv(path) -> pd.DataFrame | None:
 
 
 def noise_floor_from_report(path) -> float | None:
-    """Per-row SHAP agreement between A and its retrained copies (A'), from the Step 7 report."""
+    """Parse the retraining noise floor (mean A vs A' per-row Spearman) from the SHAP report."""
     if not path.exists():
         return None
     m = re.search(r"\| A vs A' \(mean of \d+\) \| ([0-9.]+) \(", path.read_text(encoding="utf-8"))
     return float(m.group(1)) if m else None
 
 
-# ---------------------------------------------------------------- series selection
 def series_options(test: pd.DataFrame) -> pd.DataFrame:
-    """One row per series with what makes it interesting in the test week."""
+    """Build selector metadata per series, including promo/clean counts and mean A-vs-B forecast gap."""
     clean = test[test.is_clean_day == 1]
     g = test.groupby("series_id", observed=True)
     out = pd.DataFrame({
@@ -70,22 +69,21 @@ def series_options(test: pd.DataFrame) -> pd.DataFrame:
 
 
 def showcase_series(opts: pd.DataFrame) -> int:
-    """Default example: a high-demand series with promo days and clean test days, where A and B disagree most."""
+    """Pick a default high-demand series with promo and clean test days where A and B diverge most."""
     pool = opts[(opts.promo_days > 0) & (opts.clean_days >= 3) & (opts.sales_group == "high")]
     pool = pool if len(pool) else opts
     return int(pool.sort_values("mean_gap_A_minus_B", ascending=False).series_id.iloc[0])
 
 
 def history(hist: pd.DataFrame, series_id: int, train_days: int = 42) -> pd.DataFrame:
-    """Last `train_days` training days plus the 7 test days for one series."""
+    """Return the trailing `train_days` training rows plus the 7 test rows for `series_id`."""
     h = hist[hist.series_id == series_id].sort_values("dt")
     tr, ev = h[h.split == "train"].tail(train_days), h[h.split == "eval"]
     return pd.concat([tr, ev]).reset_index(drop=True)
 
 
-# ---------------------------------------------------------------- explanation
 def explain_row(explainers: dict, row: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """SHAP values of one row under each model. Returns (features x models frame, base values)."""
+    """Compute per-model SHAP values and base values for a single-row DataFrame."""
     sv, base = {}, {}
     for c, ex in explainers.items():
         sv[c] = ex.shap_values(row[FEATURES])[0]
@@ -94,7 +92,8 @@ def explain_row(explainers: dict, row: pd.DataFrame) -> tuple[pd.DataFrame, dict
 
 
 def top_drivers(sv: pd.DataFrame, k: int = 8, grouped: bool = False) -> pd.DataFrame:
-    """Top-k features (or the feature groups) by largest |SHAP| in any model, sorted by A's |SHAP|."""
+    """Select the top-k features (or feature groups) by max |SHAP| across models,
+    sorted ascending by |A| so the largest driver sits at the top of a horizontal bar chart."""
     if grouped:
         sv = sv.groupby(GROUP_OF).sum().reindex(list(FEATURE_GROUPS))
     keep = sv.abs().max(axis=1).nlargest(min(k, len(sv))).index
@@ -102,7 +101,7 @@ def top_drivers(sv: pd.DataFrame, k: int = 8, grouped: bool = False) -> pd.DataF
 
 
 def row_stability(sv: pd.DataFrame) -> pd.DataFrame:
-    """Agreement of this row's explanation between A and B, and between A and C."""
+    """Compute per-row explanation agreement for A vs B and A vs C."""
     rows = []
     for c in "BC":
         s = local_stability(sv[["A"]].T.reset_index(drop=True), sv[[c]].T.reset_index(drop=True))
@@ -112,7 +111,7 @@ def row_stability(sv: pd.DataFrame) -> pd.DataFrame:
 
 
 def global_shares(shap_global: dict, grouped: bool = False) -> pd.DataFrame:
-    """Share of total mean |SHAP| per feature (or group), per model, from Step 7's explained rows."""
+    """Compute normalized importance shares per feature (or group) across models."""
     out = {}
     for c, df in shap_global.items():
         sv = df[FEATURES]
@@ -123,6 +122,7 @@ def global_shares(shap_global: dict, grouped: bool = False) -> pd.DataFrame:
 
 
 def global_stability(shap_global: dict) -> pd.DataFrame:
+    """Mean per-row Spearman correlation and top-3 overlap across the explained test set."""
     rows = []
     for c in "BC":
         s = local_stability(shap_global["A"][FEATURES], shap_global[c][FEATURES])
@@ -131,9 +131,8 @@ def global_stability(shap_global: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------- ordering
 def safety_for(val_errors: pd.DataFrame, cu: float, co: float) -> dict:
-    """Safety allowance per model and sales group for the chosen costs (same rule as Step 10)."""
+    """Compute newsvendor safety allowances per condition and sales group for unit costs `(cu, co)`."""
     cr = critical_ratio(cu, co)
     return {c: safety_quantiles(v.err_own.to_numpy(), v.group.to_numpy(), cr)
             for c, v in val_errors.groupby("condition")}
@@ -141,7 +140,7 @@ def safety_for(val_errors: pd.DataFrame, cu: float, co: float) -> dict:
 
 def order_table(forecasts: dict, group: str, safety: dict, cu: float, co: float,
                 true_demand: float | None) -> pd.DataFrame:
-    """Recommended order per model; outcome columns only when the true demand is known."""
+    """Build recommended order quantities per model, adding realized loss metrics when `true_demand` is known."""
     rows = []
     for c, f in forecasts.items():
         s = safety[c][group]
@@ -155,7 +154,7 @@ def order_table(forecasts: dict, group: str, safety: dict, cu: float, co: float,
 
 
 def cost_curve(orders: dict, demand_max: float, cu: float, co: float, n: int = 101) -> pd.DataFrame:
-    """Cost of each model's order if demand turned out to be d, for d in [0, demand_max]."""
+    """Evaluate newsvendor cost for each model's order across a demand grid in `[0, demand_max]`."""
     d = np.linspace(0, demand_max, n)
     return pd.DataFrame({"demand": d, **{c: outcomes(np.full(n, q), d, cu, co).cost.to_numpy()
                                          for c, q in orders.items()}})

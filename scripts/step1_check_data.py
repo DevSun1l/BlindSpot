@@ -1,7 +1,8 @@
-"""Step 1: download FreshRetailNet-50K and check structure, completeness and stockout encoding.
+"""Download FreshRetailNet-50K and validate schema, completeness, and stockout encoding.
 
-Writes a report to outputs/step1_data_report.md and prints it.
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step1_check_data.py
+Writes a validation report to `outputs/step1_data_report.md`.
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step1_check_data.py
 """
 from __future__ import annotations
 
@@ -63,21 +64,21 @@ def check_split(name: str, df: pd.DataFrame, days: int) -> None:
         else:
             out(f"| {c} | {df[c].dtype} | {df[c].min()} | {df[c].max()} | - |")
 
-    # Hourly arrays
+    # Validate hourly sales and stockout status arrays.
     hs = hourly_matrix(df["hours_sale"])
     st = hourly_matrix(df["hours_stock_status"])
     check(hs.shape[1] == 24 and st.shape[1] == 24, f"hourly arrays have 24 values (got {hs.shape[1]}, {st.shape[1]})")
     vals = np.unique(st)
     check(set(vals.tolist()) <= {0, 1}, f"hours_stock_status values are 0/1 (found {vals.tolist()})")
 
-    # Stockout encoding: does count of OUT_OF_STOCK in hours 6..21 equal stock_hour6_22_cnt?
+    # Confirm OUT_OF_STOCK count over business hours (6..21) matches stock_hour6_22_cnt.
     oos_count = (st[:, BUSINESS_HOURS] == OUT_OF_STOCK).sum(axis=1)
     match = (oos_count == df.stock_hour6_22_cnt.to_numpy()).mean()
     alt = ((st[:, BUSINESS_HOURS] == 1 - OUT_OF_STOCK).sum(axis=1) == df.stock_hour6_22_cnt.to_numpy()).mean()
     check(match > 0.99, f"stockout encoding: value {OUT_OF_STOCK} = out of stock "
           f"(matches stock_hour6_22_cnt on {match:.2%} of rows; opposite encoding matches {alt:.2%})")
 
-    # Daily total vs hourly sum
+    # Check consistency between daily totals and sum of hourly sales.
     hsum = hs.sum(axis=1)
     rel = np.abs(hsum - df.sale_amount.to_numpy()) / np.maximum(df.sale_amount.to_numpy(), 1e-9)
     close = np.isclose(hsum, df.sale_amount.to_numpy(), rtol=1e-3, atol=1e-6).mean()
@@ -86,10 +87,10 @@ def check_split(name: str, df: pd.DataFrame, days: int) -> None:
     biz_share = hs[:, BUSINESS_HOURS].sum() / max(hs.sum(), 1e-9)
     out(f"- [INFO] share of sales inside business hours 6-22: {biz_share:.2%}")
 
-    # Stockout prevalence
+    # Stockout prevalence and start-hour distribution.
     so = df.stock_hour6_22_cnt > 0
     out(f"\n**Stockouts**\n")
-    out(f"- Rows with >=1 stockout hour: {so.mean():.2%} (conversation expected ~44%)")
+    out(f"- Rows with >=1 stockout hour: {so.mean():.2%} (paper reports ~44%)")
     out(f"- Rows fully out of stock (16 h): {(df.stock_hour6_22_cnt >= 16).mean():.2%}")
     clean_per_series = (~so).groupby([df.store_id, df.product_id]).sum()
     out(f"- Stockout-free (clean) days per series: median {clean_per_series.median():.0f}, "

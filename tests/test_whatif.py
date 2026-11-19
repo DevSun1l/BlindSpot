@@ -1,4 +1,4 @@
-"""Step 9 tests: what-if guard rails and uplift on small synthetic data."""
+"""Unit tests for promotion-lever validation, what-if uplift recovery, and ratio bootstrap CIs."""
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -34,7 +34,7 @@ def test_apply_changes_only_touches_levers():
     assert (Z["discount"] == 0.8).all() and (Z["activity_flag"] == 1).all()
     other = [f for f in FEATURES if f not in ("discount", "activity_flag")]
     pd.testing.assert_frame_equal(Z[other], X[other])
-    assert not (X["discount"] == 0.8).all()          # original untouched
+    assert not (X["discount"] == 0.8).all()  # Input DataFrame must remain unmodified
 
 
 def test_whatif_recovers_known_effects():
@@ -54,4 +54,5 @@ def test_ratio_ci_and_observed_ratio():
     lo, hi = bootstrap_ratio_ci(0.6 * den, den, np.arange(1000) % 40)
     assert lo <= 0.6 <= hi and hi - lo < 1e-9 + 0.01
     df = pd.DataFrame({"series_id": [1, 1, 2, 2, 3], "activity_flag": [0, 1, 0, 1, 0], "target": [1, 1.5, 2, 2.6, 4]})
-    assert np.isclose(observed_activity_ratio(df), 1.4)        # median of 1.5 and 1.3; series 3 has no activity day
+    # Series 3 has no activity day and is excluded; median of (1.5, 1.3) is 1.4.
+    assert np.isclose(observed_activity_ratio(df), 1.4)

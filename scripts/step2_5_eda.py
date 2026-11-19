@@ -1,11 +1,12 @@
-"""Step 2.5: exploratory data analysis on the study sample.
+"""Exploratory data analysis on the 5,000-series study sample.
 
-Uses TRAIN days only for every analysis except #10 (train vs test shift, descriptive only).
-"Relative sales" = a day's sales / that series' mean sales on clean (stockout-free) train days,
-so series of different sizes can be pooled.
+Restricts all plots and summaries to training days, except the descriptive
+train-vs-test comparison at the end. "Relative sales" normalizes each day's
+sales by the series' mean on stockout-free training days.
 
 Outputs: outputs/eda/*.png and outputs/eda/eda_summary.md
-Usage:   .\\.venv\\Scripts\\python.exe scripts\\step2_5_eda.py
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step2_5_eda.py
 """
 from __future__ import annotations
 
@@ -52,7 +53,7 @@ def main() -> None:
 
     out("# Step 2.5 EDA summary (study sample: 5,000 series, train days unless stated)\n")
 
-    # 1. Sales distribution and intermittency ---------------------------------------------
+    # 1. Sales distribution and intermittency
     out("## 1. Sales distribution and intermittency")
     zero = (tr.sale_amount == 0).mean()
     nz = tr[tr.sale_amount > 0]
@@ -81,7 +82,7 @@ def main() -> None:
     out("- Implication: demand is mostly smooth/erratic at the daily level, not truly intermittent; "
         "Croston-SBA is kept as a baseline but is not expected to win.")
 
-    # 2. Example series ----------------------------------------------------------------------
+    # 2. Example series
     out("\n## 2. Example series with stockout days")
     rng = np.random.default_rng(7)
     ids = list(rng.choice(p[p.sales_group == "high"].series_id.unique(), 3, replace=False)) + \
@@ -99,7 +100,7 @@ def main() -> None:
     save(fig, "02_example_series.png")
     out("- Red bars = stockout hours that day (taller = longer stockout); dashed line = start of test week.")
 
-    # 3. Sales on stockout vs clean days -----------------------------------------------------
+    # 3. Sales on stockout vs clean days
     out("\n## 3. How much do stockouts hide?")
     bins = pd.cut(tr.stockout_hours, [-1, 0, 4, 8, 12, 15, 16], labels=["0", "1-4", "5-8", "9-12", "13-15", "16"])
     rel_by = tr.groupby(bins, observed=True).rel.mean()
@@ -113,7 +114,7 @@ def main() -> None:
     out("- Note: this mixes lost sales with selection (items that sell out may have had high demand). "
         "It shows observed sales are depressed, not the true size of hidden demand.")
 
-    # 4. Hourly profile and stockout start hour ----------------------------------------------
+    # 4. Hourly profile and stockout start hour
     out("\n## 4. Hourly sales profile and stockout start hour")
     hs = np.stack(clean.hours_sale.to_numpy())
     share = hs.sum(axis=0) / hs.sum()
@@ -136,7 +137,7 @@ def main() -> None:
     ax[1].set(title="Hour the stockout starts (stockout days)", xlabel="hour", ylabel="share", xticks=range(6, 22))
     save(fig, "04_hourly_profile_stockout_start.png")
 
-    # 5. Weekday and holiday -----------------------------------------------------------------
+    # 5. Weekday and holiday effects
     out("\n## 5. Weekday and holiday effects (clean days)")
     wd = clean.groupby("weekday").rel.mean()
     hol = clean.groupby("holiday_flag").rel.mean()
@@ -151,7 +152,7 @@ def main() -> None:
     out(f"- Note: holiday_flag is 1 on {tr.holiday_flag.mean():.0%} of days, so it likely includes weekends; "
         f"compare with the weekday chart.")
 
-    # 6. Promotion effect --------------------------------------------------------------------
+    # 6. Promotion effect
     out("\n## 6. Promotion effect (the what-if levers, clean days)")
     db = pd.cut(clean.discount, [0, .6, .7, .8, .9, .99, 1.0], labels=["<=0.6", "0.6-0.7", "0.7-0.8", "0.8-0.9", "0.9-0.99", "1.0 (none)"])
     disc = clean.groupby(db, observed=True).rel.agg(["mean", "size"])
@@ -170,7 +171,7 @@ def main() -> None:
     save(fig, "06_promotion_effect.png")
     out("- Caveat: discounts are not randomly assigned, so these are associations, not causal uplifts.")
 
-    # 7. Autocorrelation ---------------------------------------------------------------------
+    # 7. Autocorrelation
     out("\n## 7. Autocorrelation of daily sales (lags 1-14)")
     lags = range(1, 15)
     acf = {}
@@ -187,7 +188,7 @@ def main() -> None:
         f"lowest at lag(s) {', '.join(str(k) for k in acf.index if acf[k] == acf.min())}. "
         "Peaks at 7 and 14 reflect the weekly cycle; this supports lags 1, 2, 7 and 7/14-day rolling means.")
 
-    # 8. Weather -----------------------------------------------------------------------------
+    # 8. Weather vs sales
     out("\n## 8. Weather vs sales (clean days)")
     fig, ax = plt.subplots(1, 4, figsize=(17, 3.6))
     for a, c in zip(ax, ["avg_temperature", "precpt", "avg_humidity", "avg_wind_level"]):
@@ -199,7 +200,7 @@ def main() -> None:
             f"range {m.max() - m.min():.2f}")
     save(fig, "08_weather.png")
 
-    # 9. Stockout rate by category and sales group -------------------------------------------
+    # 9. Stockout rate by category and sales group
     out("\n## 9. Stockout rate by category and sales group")
     cat = tr.groupby("first_category_id").agg(rate=("is_stockout_day", "mean"), n=("series_id", "nunique"))
     cat = cat[cat.n >= 20].sort_values("rate")
@@ -213,7 +214,7 @@ def main() -> None:
     ax[1].set(title="By sales group")
     save(fig, "09_stockout_by_category.png")
 
-    # 10. Train vs test shift ----------------------------------------------------------------
+    # 10. Train vs test shift
     out("\n## 10. Train vs test week (descriptive only, not used for any modelling choice)")
     daily = p.groupby("dt").agg(sales=("sale_amount", "mean"), temp=("avg_temperature", "mean"),
                                 promo=("activity_flag", "mean"), stockout=("is_stockout_day", "mean"))

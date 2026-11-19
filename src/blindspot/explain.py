@@ -1,11 +1,8 @@
-"""Step 7: SHAP explanations and their stability across conditions.
+"""SHAP feature attributions and cross-condition explanation stability metrics.
 
-- Explainer: shap.TreeExplainer (exact for tree models), feature_perturbation="tree_path_dependent".
-  This uses each model's own trees, so no separate background sample is needed and it handles
-  LightGBM categorical splits. Additivity holds: base value + sum(SHAP) = model prediction.
-- The SAME fixed set of clean test rows is explained for every model.
-- Grouped SHAP: by additivity, a group's contribution on a row = sum of its features' SHAP values.
-- SHAP describes what the model uses, not what causes sales.
+Uses exact `shap.TreeExplainer` with `feature_perturbation="tree_path_dependent"`,
+which supports LightGBM categorical splits without an external background dataset
+and satisfies exact additivity (expected_value + sum(SHAP) == raw prediction).
 """
 from __future__ import annotations
 
@@ -22,7 +19,7 @@ TOP_K = 5
 
 
 def explain_set(test: pd.DataFrame, n: int = 2000, seed: int = 42) -> pd.DataFrame:
-    """Fixed sample of clean test rows, stratified by sales group in proportion."""
+    """Draw a reproducible sample of clean test rows, stratified proportionally by sales_group."""
     clean = test[test.is_clean_day == 1]
     frac = min(1.0, n / len(clean))
     return (clean.groupby("sales_group", observed=True, group_keys=False)
@@ -30,6 +27,7 @@ def explain_set(test: pd.DataFrame, n: int = 2000, seed: int = 42) -> pd.DataFra
 
 
 def shap_values(booster: lgb.Booster, X: pd.DataFrame, features: list[str] | None = None) -> tuple[pd.DataFrame, float]:
+    """Compute exact TreeSHAP values and scalar base value for `X`."""
     cols = features or FEATURES
     ex = shap.TreeExplainer(booster, feature_perturbation="tree_path_dependent")
     sv = ex.shap_values(X[cols])
@@ -38,26 +36,32 @@ def shap_values(booster: lgb.Booster, X: pd.DataFrame, features: list[str] | Non
 
 
 def grouped(sv: pd.DataFrame) -> pd.DataFrame:
+    """Sum feature SHAP values into semantic feature groups (preserving row additivity)."""
     return sv.T.groupby(GROUP_OF).sum().T[list(FEATURE_GROUPS)]
 
 
 def global_importance(sv: pd.DataFrame) -> pd.Series:
-    """Mean |SHAP| per column, sorted descending."""
+    """Return mean |SHAP| per feature, sorted descending."""
     return sv.abs().mean().sort_values(ascending=False)
 
 
 def importance_share(sv: pd.DataFrame) -> pd.Series:
-    """Scale-free importance: each feature's mean |SHAP| as a share of the total mean |SHAP|.
-    Needed because a model that forecasts lower overall (e.g. B) has smaller SHAP values everywhere."""
+    """Return scale-free importance: each feature's mean |SHAP| divided by total mean |SHAP|.
+
+    Normalizing by total |SHAP| allows comparing models whose predictions sit on
+    different overall scales (e.g. censored vs clean).
+    """
     imp = sv.abs().mean()
     return (imp / imp.sum()).sort_values(ascending=False)
 
 
 def topk_overlap(a: pd.Series, b: pd.Series, k: int = TOP_K) -> float:
+    """Fraction of shared features in the top-k entries of two ranked importance series."""
     return len(set(a.index[:k]) & set(b.index[:k])) / k
 
 
 def global_stability(imp_a: pd.Series, imp_b: pd.Series, k: int = TOP_K) -> dict:
+    """Rank-agreement metrics (Spearman, Kendall, top-k overlap) between two global importance profiles."""
     b = imp_b.reindex(imp_a.index)
     return {"spearman": float(spearmanr(imp_a.values, b.values).statistic),
             "kendall": float(kendalltau(imp_a.values, b.values).statistic),
@@ -65,9 +69,9 @@ def global_stability(imp_a: pd.Series, imp_b: pd.Series, k: int = TOP_K) -> dict
 
 
 def local_stability(sv_a: pd.DataFrame, sv_b: pd.DataFrame, k: int = 3) -> pd.DataFrame:
-    """Per-row agreement between two models' explanations of the same row:
-    Spearman rank correlation of |SHAP| across features, and top-k overlap of the largest |SHAP| features."""
+    """Compute per-row agreement between two SHAP matrices (Spearman of |SHAP| and top-k overlap)."""
     A, B = sv_a.abs().to_numpy(), sv_b.abs().to_numpy()
+    # Vectorized row-wise rank transform (assumes no within-row ties).
     ra = A.argsort(axis=1).argsort(axis=1).astype(float)
     rb = B.argsort(axis=1).argsort(axis=1).astype(float)
     ra -= ra.mean(axis=1, keepdims=True)
@@ -80,7 +84,7 @@ def local_stability(sv_a: pd.DataFrame, sv_b: pd.DataFrame, k: int = 3) -> pd.Da
 
 
 def bootstrap_mean_ci(values: np.ndarray, clusters: np.ndarray, n_boot: int = 500, seed: int = 0) -> tuple[float, float]:
-    """95% CI of a mean, resampling clusters (stores) with replacement."""
+    """Return a 95% cluster-bootstrap CI for the sample mean, resampling `clusters` with replacement."""
     df = pd.DataFrame({"v": values, "c": clusters}).groupby("c").v.agg(["sum", "size"])
     s, n = df["sum"].to_numpy(), df["size"].to_numpy()
     idx = np.random.default_rng(seed).integers(0, len(df), size=(n_boot, len(df)))

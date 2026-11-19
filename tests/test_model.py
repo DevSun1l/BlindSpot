@@ -1,4 +1,4 @@
-"""Step 6 tests: training helpers on small synthetic data, and the frozen config if present."""
+"""Unit tests for LightGBM training helpers and validation of the saved tuning config."""
 import numpy as np
 import pandas as pd
 import pytest

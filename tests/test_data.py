@@ -1,4 +1,4 @@
-"""Step 1 tests on the cached dataset. Skipped if data/raw/ has not been downloaded yet."""
+"""Integration tests on the cached FreshRetailNet-50K eval split (skipped if not downloaded)."""
 import numpy as np
 import pytest
 

@@ -1,11 +1,12 @@
-"""Step 2: clean and prepare the panel, choose the study sample, write a report.
+"""Clean and assemble the train+eval panel, draw the stratified study sample, and write a report.
 
 Outputs:
-  data/processed/panel.parquet          all 50,000 series, train + eval days, cleaned
-  data/processed/series.parquet         one row per series with eligibility stats
-  data/processed/sample_series.parquet  the study sample (stratified, seed 42)
+  data/processed/panel.parquet          cleaned panel for all 50,000 series
+  data/processed/series.parquet         per-series metadata and eligibility flags
+  data/processed/sample_series.parquet  stratified study sample (seed 42)
   outputs/step2_prepare_report.md
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step2_prepare_data.py [--sample-size 5000]
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step2_prepare_data.py [--sample-size 5000]
 """
 from __future__ import annotations
 

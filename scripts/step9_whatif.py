@@ -1,13 +1,15 @@
-"""Step 9: what-if on the promotion levers.
+"""Run promotion-lever what-if analyses for models A, B, and C.
 
-Part 1  Real levers (discount, activity_flag) with models A, B, C on the clean test days.
-        True effect unknown, so B and C are compared with A (which recovered ~91% of a known effect in Step 8).
-Part 2  Injected promo with a KNOWN +30% effect: per-row what-if error (estimated - true uplift) for each model.
-        Saved per row for the Step 10 inventory simulation.
+Part 1: Real levers (`discount`, `activity_flag`) on clean test days, comparing
+        B and C uplifts and discount curves against condition A.
+Part 2: Synthetic injected promotion (`test_promo`) with known uplift, saving
+        per-row errors for the downstream inventory simulation.
 
-Outputs: outputs/step9_whatif_report.md, step9_discount_curve.png, step9_uplift.png
-         data/processed/whatif_real.parquet, data/processed/whatif_injected.parquet
-Usage:   .\\.venv\\Scripts\\python.exe scripts\\step9_whatif.py [--effect 0.3] [--rate 0.2]
+Outputs:
+  outputs/step9_whatif_report.md, step9_discount_curve.png, step9_uplift.png
+  data/processed/whatif_real.parquet, data/processed/whatif_injected.parquet
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step9_whatif.py [--effect 0.3] [--rate 0.2]
 """
 from __future__ import annotations
 

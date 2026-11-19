@@ -1,4 +1,4 @@
-"""Step 4 tests: leakage safety and condition handling of the feature builder (synthetic data)."""
+"""Unit tests for leakage-safe feature generation and train/eval split flags."""
 import numpy as np
 import pandas as pd
 
@@ -37,10 +37,11 @@ def test_changing_day_t_sales_does_not_change_day_t_features():
     cond2.loc[i, "sales_A"] += 100
     new = build_features(cond2, cov, "A")
     hist = FEATURE_GROUPS["recent_sales"]
+    # Modifying day t must not affect day t's own features, but must appear in day t+1's lag_1.
     row = (base.series_id == 1) & (base.day_idx == 25)
-    pd.testing.assert_frame_equal(base.loc[row, hist], new.loc[row, hist])      # day t unaffected
+    pd.testing.assert_frame_equal(base.loc[row, hist], new.loc[row, hist])
     nxt = (base.series_id == 1) & (base.day_idx == 26)
-    assert new.loc[nxt, "lag_1"].iloc[0] == base.loc[nxt, "lag_1"].iloc[0] + 100  # day t+1 sees it
+    assert new.loc[nxt, "lag_1"].iloc[0] == base.loc[nxt, "lag_1"].iloc[0] + 100
 
 
 def test_condition_history_on_train_and_recorded_history_on_test():

@@ -1,9 +1,10 @@
-"""Step 4: build leakage-safe feature tables for conditions A, B and C.
+"""Build leakage-safe feature tables for conditions A, B, and C and run consistency checks.
 
 Outputs:
   data/processed/features_A.parquet, features_B.parquet, features_C.parquet
   outputs/step4_features_report.md
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step4_build_features.py
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step4_build_features.py
 """
 from __future__ import annotations
 

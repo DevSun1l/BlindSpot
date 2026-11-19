@@ -1,16 +1,13 @@
-"""Step 4: leakage-safe features for next-day forecasting, per condition (A, B, C).
+"""Leakage-safe feature engineering for next-day forecasting under conditions A, B, and C.
 
-Rules
-- Every sales-history feature for day t uses sales up to day t-1 only (shift by 1).
-- TRAIN rows: history comes from the condition's own sales (so B's lags are censored).
-- TEST (eval) rows: history comes from the recorded sales (= condition A) in every condition,
-  so all three models see identical test inputs and differ only in what they learned.
-- Promotion, calendar and weather values for day t are treated as known in advance.
-- No stockout information is a feature.
-
-Training targets: clean train days only (masked days carry the condition's value). Real stockout
-days are never targets in any condition, but their recorded sales still appear in the lags.
-The first 14 days are dropped as targets because their 14-day history is incomplete.
+Design:
+- Sales-history features for day t use only observations up to day t-1.
+- Training rows derive history from the condition's own sales column.
+- Evaluation rows derive history from recorded sales (condition A) so all models
+  receive identical test-time inputs.
+- Promotion, calendar, and weather covariates for day t are treated as known ahead of time.
+- Stockout and masking indicators are excluded from model features.
+- Training targets are restricted to clean training days after the 14-day warmup window.
 """
 from __future__ import annotations
 
@@ -19,7 +16,7 @@ import pandas as pd
 
 LAGS = [1, 2, 7, 14]
 WARMUP_DAYS = 14
-VALID_DAYS = 14          # last 14 train days -> validation (early stopping)
+VALID_DAYS = 14  # Trailing training days reserved for validation / early stopping
 
 FEATURE_GROUPS: dict[str, list[str]] = {
     "recent_sales": [f"lag_{k}" for k in LAGS] + ["roll_mean_7", "roll_mean_14", "roll_std_7"],
@@ -40,9 +37,10 @@ COVARIATES = ["discount", "activity_flag", "holiday_flag", "precpt", "avg_temper
 
 
 def history_features(df: pd.DataFrame, sales_col: str) -> pd.DataFrame:
-    """Lag and rolling features from `sales_col`; df must be sorted by series_id, dt (consecutive days)."""
+    """Compute lagged and rolling statistics from `sales_col` (requires consecutive daily rows per series)."""
     g = df.groupby("series_id", sort=False)[sales_col]
-    past = g.shift(1)                                    # sales up to t-1
+    # Shift by 1 day before rolling aggregations so day t never leaks into its own features.
+    past = g.shift(1)
     gp = past.groupby(df["series_id"], sort=False)
     out = pd.DataFrame(index=df.index)
     for k in LAGS:
@@ -54,14 +52,15 @@ def history_features(df: pd.DataFrame, sales_col: str) -> pd.DataFrame:
 
 
 def build_features(cond: pd.DataFrame, panel: pd.DataFrame, condition: str) -> pd.DataFrame:
-    """Feature table for one condition ('A', 'B' or 'C')."""
+    """Build the feature and target table for condition 'A', 'B', or 'C'."""
     sales_col = f"sales_{condition}"
     df = cond.sort_values(["series_id", "dt"]).reset_index(drop=True)
     cov = panel[["series_id", "dt"] + COVARIATES]
     df = df.merge(cov, on=["series_id", "dt"], how="left", validate="one_to_one")
 
+    # Use condition-specific history on train rows and recorded history (sales_A) on eval rows.
     own = history_features(df, sales_col)
-    rec = history_features(df, "sales_A")                # recorded history, for test rows
+    rec = history_features(df, "sales_A")
     is_eval = (df["split"] == "eval").to_numpy()
     hist = own.copy()
     hist.loc[is_eval] = rec.loc[is_eval]
@@ -72,11 +71,12 @@ def build_features(cond: pd.DataFrame, panel: pd.DataFrame, condition: str) -> p
     feats["condition"] = condition
     feats["target"] = np.where(is_eval, feats["sales_true"], feats[sales_col]).astype("float32")
 
+    # Define training, validation, and test masks (test rows are later scored on clean days only).
     train = feats["split"] == "train"
     last_train = feats.loc[train, "day_idx"].max()
     feats["is_train_target"] = (train & (feats["is_clean_day"] == 1) & (feats["day_idx"] >= WARMUP_DAYS)).astype("int8")
     feats["is_valid"] = (feats["is_train_target"].astype(bool) & (feats["day_idx"] > last_train - VALID_DAYS)).astype("int8")
-    feats["is_test"] = is_eval.astype("int8")        # scored only where is_clean_day == 1
+    feats["is_test"] = is_eval.astype("int8")
 
     for c in CATEGORICAL:
         feats[c] = feats[c].astype("category")

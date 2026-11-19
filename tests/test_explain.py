@@ -1,4 +1,4 @@
-"""Step 7 tests: SHAP additivity, grouping and stability measures on small synthetic data."""
+"""Unit tests for SHAP additivity, feature grouping, importance shares, and stability metrics."""
 import lightgbm as lgb
 import numpy as np
 import pandas as pd

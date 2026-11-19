@@ -1,4 +1,4 @@
-"""Step 0 check: confirms Python version and that every Phase 1 library imports."""
+"""Verify the Python runtime, required package imports, and a minimal LightGBM + SHAP smoke test."""
 import importlib
 import sys
 
@@ -15,7 +15,7 @@ for name in LIBS:
         failed.append(name)
         print(f"  FAIL  {name:<14} {exc}")
 
-# Tiny smoke test: LightGBM + SHAP TreeExplainer on random data
+# Verify LightGBM + TreeExplainer recover the dominant feature on synthetic linear data.
 import numpy as np
 import lightgbm as lgb
 import shap

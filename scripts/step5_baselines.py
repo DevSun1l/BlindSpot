@@ -1,10 +1,11 @@
-"""Step 5: baseline forecasts scored with the frn-50k-baseline protocol.
+"""Compute baseline forecasts and score them under the frn-50k-baseline evaluation protocol.
 
 Outputs:
-  outputs/step5_baselines.csv          metrics per baseline x condition x group
+  outputs/step5_baselines.csv            metrics per baseline x condition x group
   outputs/step5_baselines_report.md
-  data/processed/baseline_preds.parquet (test-day predictions, reused by later steps)
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step5_baselines.py
+  data/processed/baseline_preds.parquet  test-day predictions for downstream comparison
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step5_baselines.py
 """
 from __future__ import annotations
 
@@ -39,12 +40,12 @@ def main() -> None:
     cond = pd.read_parquet(PROCESSED_DIR / "conditions.parquet").sort_values(["series_id", "dt"]).reset_index(drop=True)
     stores = panel[["series_id", "store_id"]].drop_duplicates()
 
-    # Next-day baselines (identical for every condition: test-time history is the recorded sales)
+    # Next-day baselines rely on recorded test-time history, so they do not vary across conditions.
     fa = pd.read_parquet(PROCESSED_DIR / "features_A.parquet")
     nd = next_day_baselines(fa)
     test = nd[nd.is_test == 1].drop(columns=["store_id"]).merge(stores, on="series_id")
 
-    # SSA week-ahead, run on each condition's 90-day training history
+    # Week-ahead SSA uses each condition's 90-day training history separately.
     base = panel[["series_id", "dt", "discount", "holiday_flag", "precpt"]].copy()
     for c in "ABC":
         base[f"hist_{c}"] = cond[f"sales_{c}"].to_numpy()
