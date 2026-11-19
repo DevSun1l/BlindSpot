@@ -93,6 +93,29 @@ def inject_promo(panel: pd.DataFrame, rate: float = 0.2, effect: float = 0.3, se
     return p
 
 
+def train_injected(panel: pd.DataFrame, cfg: dict, rate: float = 0.2, effect: float = 0.3, seed: int = 7):
+    """Inject the synthetic promo, rebuild conditions A/B/C and their features from the modified truth, and train
+    each model with the frozen config plus `test_promo`.
+    Returns (boosters {c: Booster}, test rows of condition A with test_promo and demand_no_promo, condition table,
+    injected panel). Test inputs are identical across conditions, so condition A's test rows serve all three."""
+    from blindspot.conditions import ConditionConfig, build_conditions
+    from blindspot.features import FEATURES, build_features
+    from blindspot.model import split_rows, train_final
+
+    pi = inject_promo(panel, rate=rate, effect=effect, seed=seed)
+    cond, _ = build_conditions(pi, ConditionConfig())
+    feats = FEATURES + [PROMO_FEATURE]
+    flag = pi[["series_id", "dt", PROMO_FEATURE, "demand_no_promo"]]
+    boosters, test = {}, None
+    for c in "ABC":
+        f = build_features(cond, pi, c).merge(flag, on=["series_id", "dt"], how="left")
+        _, _, train, t = split_rows(f)
+        boosters[c] = train_final(cfg["params"], cfg["n_rounds"], train, feats)
+        if c == "A":
+            test = t
+    return boosters, test, cond, pi
+
+
 def whatif_uplift(booster: lgb.Booster, X: pd.DataFrame, features: list[str], feature: str = PROMO_FEATURE) -> np.ndarray:
     """Model's what-if effect of switching `feature` from 0 to 1 on each row (no clipping)."""
     on, off = X[features].copy(), X[features].copy()

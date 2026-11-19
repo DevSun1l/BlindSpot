@@ -20,14 +20,13 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from blindspot.conditions import ConditionConfig, build_conditions  # noqa: E402
 from blindspot.data import PROJECT_ROOT  # noqa: E402
 from blindspot.explain import bootstrap_mean_ci, shap_values  # noqa: E402
-from blindspot.faithfulness import (PROMO_FEATURE, deletion_insertion, inject_promo, reference_values,  # noqa: E402
+from blindspot.faithfulness import (PROMO_FEATURE, deletion_insertion, reference_values, train_injected,  # noqa: E402
                                     whatif_uplift)
-from blindspot.features import FEATURES, build_features  # noqa: E402
+from blindspot.features import FEATURES  # noqa: E402
 from blindspot.metrics import evaluate  # noqa: E402
-from blindspot.model import load_config, load_features, predict, split_rows, train_final  # noqa: E402
+from blindspot.model import load_config, load_features, predict, split_rows  # noqa: E402
 from blindspot.prepare import PROCESSED_DIR, load_panel  # noqa: E402
 
 OUT = PROJECT_ROOT / "outputs"
@@ -80,9 +79,7 @@ def part1(rows: int) -> dict:
 
 def part2(effect: float, rate: float, cfg: dict) -> dict:
     out(f"\n## Part 2: injected promotion with a known effect (+{effect:.0%} on {rate:.0%} of days)\n")
-    panel = load_panel(sample_only=True)
-    pi = inject_promo(panel, rate=rate, effect=effect)
-    cond, _ = build_conditions(pi, ConditionConfig())
+    boosters, test, cond, pi = train_injected(load_panel(sample_only=True), cfg, rate=rate, effect=effect)
     feats = FEATURES + [PROMO_FEATURE]
     flag = pi[["series_id", "dt", PROMO_FEATURE, "demand_no_promo"]]
 
@@ -92,13 +89,7 @@ def part2(effect: float, rate: float, cfg: dict) -> dict:
         f"train days vs {m_on.loc[m_on[PROMO_FEATURE] == 0, 'is_masked'].mean():.1%} of other clean train days "
         "(demand-linked masking hits promo days harder, as real stockouts would).")
 
-    res, boosters, tests = {}, {}, {}
-    for c in "ABC":
-        f = build_features(cond, pi, c).merge(flag, on=["series_id", "dt"], how="left")
-        _, _, train, test = split_rows(f)
-        boosters[c] = train_final(cfg["params"], cfg["n_rounds"], train, feats)
-        tests[c] = test
-    test = tests["A"]
+    res = {}
     clean = test[test.is_clean_day == 1].copy()
     for c in "ABC":
         clean[f"pred_{c}"] = predict(boosters[c], clean, feats)
