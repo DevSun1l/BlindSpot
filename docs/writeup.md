@@ -16,7 +16,10 @@ Censoring made the model learn a promotion effect about **40% too small**, while
 about **10%**. SHAP still described the censored model faithfully and still ranked the promotion feature 2nd,
 so the explanation *looked* as trustworthy as the clean one while its size was wrong. Orders based on the
 censored model cost about **12% more** day to day, and ordering for a promotion on its what-if added a further
-**11%**. Matched random noise caused much smaller changes. All findings held across 4 masking seeds.
+**11%**. Matched random noise caused much smaller changes. All findings held across 4 masking seeds. They also held
+under two falsification checks: masking days at random rather than on high-demand days, and varying the amount of
+censoring, where the damage grew steadily with it. A 2020–2026 literature search found no prior study of this
+question.
 
 ## 1. Research questions
 
@@ -36,6 +39,34 @@ unchanged.
 Explanation studies test faithfulness on clean data, and robustness studies use random label noise in
 classification. None test a one-sided, systematic distortion like censoring in demand forecasting, against a
 matched-noise control, with true demand known.
+
+### Related work (2020–2026)
+
+A literature search covering 2020–2026 was run after the main results, to check that the gap is still open.
+
+| Strand | Examples | Explanations under censoring? |
+|---|---|---|
+| Censored-demand forecasting | Tobit Kalman filter under lost-sales policies (Trapero, Holgado de Frutos and Pedregal, *IJF* 2024); Tobit exponential smoothing with time aggregation (arXiv 2409.05412, 2024); FreshRetailNet-50K two-stage recovery (Wang et al., 2025) | No: forecast accuracy and inventory only |
+| Same dataset, gradient boosting + newsvendor | Azar, *Inventions* 2026: leakage-free LightGBM/XGBoost/CatBoost pipeline with newsvendor policies on FreshRetailNet-50K | No explanation layer (checked from the public code repository; the paper itself could not be accessed). Its profit figures are proxies, because evaluation demand is censored |
+| Decisions under censoring | Feature-based newsvendor under censored demand (van der Haar et al., arXiv 2610.17465, 2026); value of censored data (Kumar and Mouchtaki, arXiv 2602.16842, 2026) | No: decisions only |
+| Explainable demand forecasting | SHAP for sales and operations planning forecasts (Arboleda-Florez and Castro-Zuluaga, *Production* 2023); MCDFN (arXiv 2405.15598, 2024); explainability for trust in demand planning (Zhu et al., 2025) | No: explanations on the data as recorded |
+| Explanation robustness | Interpretation drift under label noise (Raikovskaia, Rakhimzhanov and Pianykh, *Scientific Reports* 2026); explanation multiplicity in SHAP (Hwang et al., NeurIPS 2026); SHAP stability under adversarial attacks (Rajhans and Khawarey, arXiv 2607.01679, 2026) | Related, but random noise or attacks, classification, no decision costs |
+
+**Closest work.** Raikovskaia et al. (2026) report that explanations can drift under label noise while accuracy
+stays stable. That supports the premise of RQ2, but their study uses:
+- random label flips;
+- rule-based classifiers;
+- no decision layer.
+
+This study adds, in demand regression:
+- one-sided, systematic censoring compared against a matched-noise control;
+- SHAP and what-if explanations;
+- a known ground truth;
+- the cost of the decisions built on the explanations.
+
+**Conclusion.** No published work was found that tests whether stockout censoring changes SHAP or what-if
+explanations and the inventory decisions built on them. The gap appears open. This rests on web searches, and
+several papers were read at abstract or repository level only, so absence of evidence is not proof.
 
 ## 2. Data
 
@@ -220,6 +251,39 @@ promotions).
 - B is worse than C on 11 of 12 metrics in every seed.
 - The exception is the importance share of the recent-sales group, which barely moves in B (see 4.2).
 
+### 4.6 Falsification checks: can the finding be explained away?
+
+Two ways the main finding could be an artefact of the setup were tested (Step 14, masking seeds 42 and 43):
+
+1. **Censoring falls mostly on high-demand days.** If the effect came only from *which* days were masked, it
+   should vanish when days are masked at random.
+2. **No link between amount and damage.** If censoring is the cause, more censoring should do more damage.
+
+| Change from A | B random 30% | B 10% | B 30% (main) | B 50% | C 10% | C 30% | C 50% |
+|---|---|---|---|---|---|---|---|
+| WAPE | +0.020 | +0.004 | +0.030 | +0.070 | +0.004 | +0.008 | +0.012 |
+| Known promotion effect recovered (A: 90%) | 79% | 79% | 58% | 36% | 88% | 82% | 84% |
+| Per-row SHAP agreement with A | 0.880 | 0.931 | 0.858 | 0.758 | 0.937 | 0.888 | 0.844 |
+| Everyday ordering cost (A: 0.205) | 0.220 | 0.210 | 0.233 | 0.270 | 0.209 | 0.213 | 0.217 |
+| Extra promotion cost from what-if error (A: +0.003) | +0.008 | +0.010 | +0.025 | +0.050 | +0.006 | +0.010 | +0.006 |
+
+(10%, 30% and 50% are demand-linked masking rates; C at random 30% recovers 86%.)
+
+- **Random masking: the finding holds.** With masking unrelated to demand, B is still worse than matched noise on
+  all 8 metrics checked, in both seeds.
+  - The promotion effect is still under-estimated (79% recovered against 86% for noise), but less than with
+    demand-linked masking (58%).
+  - So part of the damage comes from censoring itself, and part from censoring falling on high-demand days, which
+    are often promotion days, as real stockouts do.
+- **Dose-response: the finding holds.** B's damage grows steadily from 10% to 30% to 50% censoring on every
+  metric. Noise barely changes.
+  - At 50% censoring, B recovers only 36% of the promotion effect and costs 32% more to order with.
+- **RQ2 is even clearer at low censoring.** At 10%, B and C have *identical* WAPE (both +0.004), yet B
+  under-estimates the promotion effect by 11 points and C by 2. Accuracy reveals nothing, while the explanation
+  is already off.
+
+![dose response](../outputs/step14_dose_response.png)
+
 ## 5. Discussion
 
 The main risk censoring creates for explainable forecasting is not an unfaithful explanation. It is a faithful
@@ -254,6 +318,8 @@ of censoring, not from the amount of distortion.
   effects interact with price, season and product.
 - **Descriptive, not causal.** SHAP and what-if describe the models, not customer behaviour.
 - **Research question.** RQ2 was sharpened after the results, as noted in Section 1.
+- **Falsification scope.** The random-masking and dose-response checks used 2 masking seeds each, on the same
+  sample and model.
 
 ## 7. Future work (Phase 2)
 

@@ -59,6 +59,7 @@ The dataset (about 60 MB) downloads from Hugging Face on first use and is cached
 | 9 What-if | `scripts\step9_whatif.py` | `step9_whatif_report.md` |
 | 10 Inventory | `scripts\step10_inventory.py` | `step10_inventory_report.md` |
 | 11 Runner + seeds | `scripts\step11_experiment.py` | `step11_experiment_report.md` |
+| 14 Falsification checks | `scripts\step14_falsification.py` | `step14_falsification_report.md` |
 
 Run each with `.\.venv\Scripts\python.exe scripts\<name>.py`. After Steps 1-2 (and 6a once), Step 11 re-runs
 Steps 3-10 and the multi-seed check in one command (about 7 minutes):

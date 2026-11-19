@@ -1,11 +1,9 @@
-"""Step 11: the whole A/B/C experiment for one masking seed, computed in memory.
+"""In-memory multi-seed experiment runner for conditions A, B, and C.
 
-Nothing is written to data/processed, so the main (seed 42) files from Steps 3-10 are never overwritten.
-Settings are the frozen ones from the earlier steps: LightGBM config from Step 6a, the same explained rows as
-Step 7, the same promo scenario as Step 9, the same newsvendor rule and costs as Step 10.
-
-Condition A does not depend on the masking seed (it is the recorded data), so its models are computed once
-and reused through `a_cache`.
+Evaluates forecasting accuracy, SHAP stability, what-if uplift, everyday
+newsvendor costs, and injected-promotion recovery for a given masking seed
+without overwriting files in `data/processed/`. Condition A is independent of
+the masking seed and can be cached across runs via `a_cache`.
 """
 from __future__ import annotations
 
@@ -23,7 +21,8 @@ from blindspot.whatif import SCENARIOS, whatif
 
 PROMO_SCENARIO = "promo: activity + 20% discount"
 
-# metric key -> (label, unit/format, which direction is worse: "high", "low" or "abs")
+# Maps metric key to (display_label, format_spec, worse_direction).
+# Direction is one of: "high", "low", "abs" (distance from 0), or "abs1" (distance from 1).
 METRICS: dict[str, tuple[str, str, str]] = {
     "wape": ("Forecast WAPE", "{:.3f}", "high"),
     "bias": ("Forecast bias (WPE)", "{:+.3f}", "abs"),
@@ -39,15 +38,13 @@ METRICS: dict[str, tuple[str, str, str]] = {
     "promo_extra_cost": ("Extra promo-day cost from what-if error", "{:+.3f}", "high"),
 }
 
-
-# Metrics defined relative to A: A is the reference by construction, so "B worse than A" is trivially true there;
-# only the B-vs-C comparison is informative.
+# Metrics anchored to condition A by definition (so only B-vs-C comparisons are meaningful).
 RELATIVE_TO_A = {"row_spearman_vs_A", "discount_share_change", "activity_share_change", "recent_sales_share_change",
                  "promo_uplift_vs_A"}
 
 
 def worse(metric: str, x: float, y: float) -> bool:
-    """True if value x is worse than y for this metric."""
+    """Return True if value `x` is worse than `y` under `metric`'s direction."""
     d = METRICS[metric][2]
     if d == "high":
         return x > y
@@ -55,24 +52,33 @@ def worse(metric: str, x: float, y: float) -> bool:
         return x < y
     if d == "abs":
         return abs(x) > abs(y)
-    return abs(x - 1) > abs(y - 1)          # "abs1": distance from 1 (perfect agreement / recovery)
+    # "abs1": larger distance from 1.0 (perfect agreement or 100% recovery).
+    return abs(x - 1) > abs(y - 1)
 
 
 def _models(cond: pd.DataFrame, panel: pd.DataFrame, c: str, cfg: dict) -> dict:
+    """Train the final booster on all train rows plus a fit-only booster for out-of-sample validation residuals."""
     f = build_features(cond, panel, c)
     fit, valid, train, test = split_rows(f)
     final = train_final(cfg["params"], cfg["n_rounds"], train)
-    fit_only = train_final(cfg["params"], cfg["n_rounds"], fit)          # out-of-sample validation errors
+    fit_only = train_final(cfg["params"], cfg["n_rounds"], fit)
     return {"booster": final, "test": test, "resid": valid.target.to_numpy() - predict(fit_only, valid),
             "resid_group": valid.sales_group.astype(str).to_numpy()}
 
 
 def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | None = None, explain_rows: int = 2000,
-             effect: float = 0.3, rate: float = 0.2, cu: float = CU, co: float = CO) -> pd.DataFrame:
-    """All headline metrics for conditions A, B, C at one masking seed. Returns long format:
-    columns seed, condition, metric, value."""
+             effect: float = 0.3, rate: float = 0.2, cu: float = CU, co: float = CO,
+             mask_rate: float = ConditionConfig.mask_rate,
+             demand_power: float = ConditionConfig.demand_power) -> pd.DataFrame:
+    """Run all headline metrics for conditions A, B, and C at one masking seed.
+
+    `mask_rate` and `demand_power` change how B and C are built (demand_power 0 = masking unrelated to demand);
+    condition A does not depend on them, so its cached models stay valid.
+
+    Returns a long-format DataFrame with columns `seed`, `condition`, `metric`, `value`.
+    """
     a_cache = {} if a_cache is None else a_cache
-    cc = ConditionConfig(seed=mask_seed)
+    cc = ConditionConfig(mask_rate=mask_rate, demand_power=demand_power, seed=mask_seed)
     cond, _ = build_conditions(panel, cc)
     m = {}
     for c in "ABC":
@@ -89,14 +95,14 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
     def add(c, k, v):
         rows.append((mask_seed, c, k, float(v)))
 
-    # forecast accuracy
+    # Forecast accuracy on clean test days.
     for c in "ABC":
         clean[f"pred_{c}"] = predict(m[c]["booster"], clean)
         e = evaluate(clean, f"pred_{c}").set_index("group").loc["all"]
         add(c, "wape", e.wape)
         add(c, "bias", e.wpe)
 
-    # explanations (same rows as Step 7)
+    # SHAP explanation stability and importance-share shifts.
     X = explain_set(test, n=explain_rows)
     sv = {c: shap_values(m[c]["booster"], X)[0] for c in "ABC"}
     share = {c: importance_share(sv[c]) for c in "ABC"}
@@ -108,13 +114,13 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
         add(c, "activity_share_change", share[c]["activity_flag"] / share["A"]["activity_flag"] - 1)
         add(c, "recent_sales_share_change", gshare[c]["recent_sales"] / gshare["A"]["recent_sales"] - 1)
 
-    # what-if on real levers (Step 9 promo scenario)
+    # Real-lever promotion what-if uplift relative to condition A.
     base, scen = SCENARIOS[PROMO_SCENARIO]
     up = {c: whatif(m[c]["booster"], clean, base, scen).uplift.sum() for c in "ABC"}
     for c in "ABC":
         add(c, "promo_uplift_vs_A", up[c] / up["A"])
 
-    # everyday ordering (Step 10 part 1)
+    # Everyday newsvendor ordering calibrated on each condition's own validation residuals.
     cr = critical_ratio(cu, co)
     g = clean.sales_group.astype(str).to_numpy()
     D = clean.sales_true.to_numpy()
@@ -126,7 +132,7 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
         add(c, "fill_rate", s["fill_rate"])
         add(c, "stockout_rate", s["stockout_rate"])
 
-    # injected promo: recovery (Step 9 part 2) and promo-day ordering cost (Step 10 part 2)
+    # Injected promotion recovery and incremental promo-day ordering cost.
     need = "BC" if "A_inj" in a_cache else "ABC"
     inj, t_inj, _, _ = train_injected(panel, cfg, rate=rate, effect=effect, cond_cfg=cc, conditions=need)
     if "A_inj" in a_cache:
@@ -148,8 +154,7 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
 
 
 def consistency(results: pd.DataFrame) -> pd.DataFrame:
-    """Per metric: seed-42-style first-seed values, mean/min/max over seeds for B and C, and in how many seeds
-    B is worse than A and worse than C."""
+    """Summarize cross-seed mean/min/max per metric and count seeds where B is worse than A or C."""
     wide = results.pivot_table(index=["metric", "seed"], columns="condition", values="value")
     out = []
     for k in METRICS:
