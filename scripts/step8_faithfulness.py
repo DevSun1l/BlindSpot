@@ -139,6 +139,9 @@ def main() -> None:
     out("# Step 8 report: faithfulness of SHAP explanations\n")
     curves = part1(a.rows)
     res = part2(a.effect, a.rate, cfg)
+    pd.DataFrame([{"model": c, "deletion_gain": curves[c][1], "insertion_gain": curves[c][2],
+                   "whatif_recovery": res[c]["rec"], "shap_recovery": res[c]["shap_rec"], "promo_rank": res[c]["rank"]}
+                  for c in "ABC"]).to_csv(OUT / "step8_results.csv", index=False)
 
     fig, ax = plt.subplots(1, 2, figsize=(13, 4.5))
     k = np.arange(1, len(FEATURES) + 1)

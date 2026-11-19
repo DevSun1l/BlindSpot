@@ -227,6 +227,8 @@ def main() -> None:
         "delivery; unsold units are wasted, unmet demand is lost; costs are relative. Sales units are normalised, so "
         "costs are reported per unit of true demand. Same ordering rule for every model.\n")
     val = validation_errors(load_config(MODELS / "lgb_config.json"))
+    pd.concat([v.assign(condition=c) for c, v in val.items()]).to_parquet(
+        PROCESSED_DIR / "validation_errors.parquet", index=False)          # used by the Streamlit app
     p1, _ = part1(val, a.cu, a.co)
     p2 = part2(p1["safeties"], a.cu, a.co)
     plots(p1, p2, a.cu, a.co)
