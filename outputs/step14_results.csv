@@ -1,0 +1,289 @@
+seed,condition,metric,value,setting
+42,A,wape,0.2865,random 30%
+42,A,bias,-0.0388,random 30%
+42,B,wape,0.3033,random 30%
+42,B,bias,-0.1285,random 30%
+42,C,wape,0.2917,random 30%
+42,C,bias,-0.0518,random 30%
+42,A,row_spearman_vs_A,1.0,random 30%
+42,A,discount_share_change,0.0,random 30%
+42,A,activity_share_change,0.0,random 30%
+42,A,recent_sales_share_change,0.0,random 30%
+42,B,row_spearman_vs_A,0.8813145115753812,random 30%
+42,B,discount_share_change,-0.06250585981674306,random 30%
+42,B,activity_share_change,-0.22685892007339403,random 30%
+42,B,recent_sales_share_change,-0.0240398098228517,random 30%
+42,C,row_spearman_vs_A,0.9160728402032751,random 30%
+42,C,discount_share_change,0.03770862719164492,random 30%
+42,C,activity_share_change,-0.05031265623995007,random 30%
+42,C,recent_sales_share_change,-0.04531413634304171,random 30%
+42,A,promo_uplift_vs_A,1.0,random 30%
+42,B,promo_uplift_vs_A,0.8032308956522384,random 30%
+42,C,promo_uplift_vs_A,1.0149479373918995,random 30%
+42,A,cost_per_demand,0.20484098464616526,random 30%
+42,A,fill_rate,0.8961406621795219,random 30%
+42,A,stockout_rate,0.34182701466946086,random 30%
+42,B,cost_per_demand,0.2171598833512334,random 30%
+42,B,fill_rate,0.8679109251669369,random 30%
+42,B,stockout_rate,0.39255096208801676,random 30%
+42,C,cost_per_demand,0.20969088767804114,random 30%
+42,C,fill_rate,0.8924449398168214,random 30%
+42,C,stockout_rate,0.3387788150123833,random 30%
+42,A,injected_recovery,0.9035463702591605,random 30%
+42,A,promo_extra_cost,0.0032563295397691205,random 30%
+42,B,injected_recovery,0.7985246697272295,random 30%
+42,B,promo_extra_cost,0.007880506367766382,random 30%
+42,C,injected_recovery,0.861613780954666,random 30%
+42,C,promo_extra_cost,0.004415916517476581,random 30%
+43,A,wape,0.2865,random 30%
+43,A,bias,-0.0388,random 30%
+43,B,wape,0.3097,random 30%
+43,B,bias,-0.1398,random 30%
+43,C,wape,0.2933,random 30%
+43,C,bias,-0.0571,random 30%
+43,A,row_spearman_vs_A,1.0,random 30%
+43,A,discount_share_change,0.0,random 30%
+43,A,activity_share_change,0.0,random 30%
+43,A,recent_sales_share_change,0.0,random 30%
+43,B,row_spearman_vs_A,0.8788294748729532,random 30%
+43,B,discount_share_change,-0.04869243442150295,random 30%
+43,B,activity_share_change,-0.09440662024003976,random 30%
+43,B,recent_sales_share_change,-0.03219094794135602,random 30%
+43,C,row_spearman_vs_A,0.9148339920948617,random 30%
+43,C,discount_share_change,0.024682391750505905,random 30%
+43,C,activity_share_change,0.027919681310031308,random 30%
+43,C,recent_sales_share_change,-0.042139654827091366,random 30%
+43,A,promo_uplift_vs_A,1.0,random 30%
+43,B,promo_uplift_vs_A,0.8038288443263784,random 30%
+43,C,promo_uplift_vs_A,1.0303626549890688,random 30%
+43,A,cost_per_demand,0.20484098464616526,random 30%
+43,A,fill_rate,0.8961406621795219,random 30%
+43,A,stockout_rate,0.34182701466946086,random 30%
+43,B,cost_per_demand,0.2225375097732,random 30%
+43,B,fill_rate,0.8609775132818455,random 30%
+43,B,stockout_rate,0.3968851209754239,random 30%
+43,C,cost_per_demand,0.21148146722238018,random 30%
+43,C,fill_rate,0.8906568100690941,random 30%
+43,C,stockout_rate,0.34016003048199656,random 30%
+43,A,injected_recovery,0.9035463702591605,random 30%
+43,A,promo_extra_cost,0.0032563295397691205,random 30%
+43,B,injected_recovery,0.7841590655052634,random 30%
+43,B,promo_extra_cost,0.008091782616673399,random 30%
+43,C,injected_recovery,0.851644649398625,random 30%
+43,C,promo_extra_cost,0.006855268630596267,random 30%
+42,A,wape,0.2865,demand-linked 10%
+42,A,bias,-0.0388,demand-linked 10%
+42,B,wape,0.2904,demand-linked 10%
+42,B,bias,-0.075,demand-linked 10%
+42,C,wape,0.2897,demand-linked 10%
+42,C,bias,-0.0507,demand-linked 10%
+42,A,row_spearman_vs_A,1.0,demand-linked 10%
+42,A,discount_share_change,0.0,demand-linked 10%
+42,A,activity_share_change,0.0,demand-linked 10%
+42,A,recent_sales_share_change,0.0,demand-linked 10%
+42,B,row_spearman_vs_A,0.9318277809147374,demand-linked 10%
+42,B,discount_share_change,-0.0640809756480949,demand-linked 10%
+42,B,activity_share_change,-0.16731772703590075,demand-linked 10%
+42,B,recent_sales_share_change,0.001458588631617852,demand-linked 10%
+42,C,row_spearman_vs_A,0.938622811970638,demand-linked 10%
+42,C,discount_share_change,0.052169810042877574,demand-linked 10%
+42,C,activity_share_change,-0.08112233659460188,demand-linked 10%
+42,C,recent_sales_share_change,-0.02681952080980754,demand-linked 10%
+42,A,promo_uplift_vs_A,1.0,demand-linked 10%
+42,B,promo_uplift_vs_A,0.8818700392023622,demand-linked 10%
+42,C,promo_uplift_vs_A,1.0078192238217665,demand-linked 10%
+42,A,cost_per_demand,0.20484098464616526,demand-linked 10%
+42,A,fill_rate,0.8961406621795219,demand-linked 10%
+42,A,stockout_rate,0.34182701466946086,demand-linked 10%
+42,B,cost_per_demand,0.20964760501084445,demand-linked 10%
+42,B,fill_rate,0.8830231488185474,demand-linked 10%
+42,B,stockout_rate,0.3650219089350352,demand-linked 10%
+42,C,cost_per_demand,0.20815575822650745,demand-linked 10%
+42,C,fill_rate,0.889009912984534,demand-linked 10%
+42,C,stockout_rate,0.35344827586206895,demand-linked 10%
+42,A,injected_recovery,0.9035463702591605,demand-linked 10%
+42,A,promo_extra_cost,0.0032563295397691205,demand-linked 10%
+42,B,injected_recovery,0.7998939174290878,demand-linked 10%
+42,B,promo_extra_cost,0.00895872459962338,demand-linked 10%
+42,C,injected_recovery,0.8979839503197142,demand-linked 10%
+42,C,promo_extra_cost,0.0039553809683407215,demand-linked 10%
+43,A,wape,0.2865,demand-linked 10%
+43,A,bias,-0.0388,demand-linked 10%
+43,B,wape,0.2906,demand-linked 10%
+43,B,bias,-0.0751,demand-linked 10%
+43,C,wape,0.2907,demand-linked 10%
+43,C,bias,-0.0548,demand-linked 10%
+43,A,row_spearman_vs_A,1.0,demand-linked 10%
+43,A,discount_share_change,0.0,demand-linked 10%
+43,A,activity_share_change,0.0,demand-linked 10%
+43,A,recent_sales_share_change,0.0,demand-linked 10%
+43,B,row_spearman_vs_A,0.9311620553359684,demand-linked 10%
+43,B,discount_share_change,-0.07448280969052856,demand-linked 10%
+43,B,activity_share_change,-0.09677810237417572,demand-linked 10%
+43,B,recent_sales_share_change,0.0068694960347892575,demand-linked 10%
+43,C,row_spearman_vs_A,0.9355940146809713,demand-linked 10%
+43,C,discount_share_change,0.014828338492003379,demand-linked 10%
+43,C,activity_share_change,0.032499142455584495,demand-linked 10%
+43,C,recent_sales_share_change,-0.029436319272946432,demand-linked 10%
+43,A,promo_uplift_vs_A,1.0,demand-linked 10%
+43,B,promo_uplift_vs_A,0.8574111126314122,demand-linked 10%
+43,C,promo_uplift_vs_A,1.0073483664770666,demand-linked 10%
+43,A,cost_per_demand,0.20484098464616526,demand-linked 10%
+43,A,fill_rate,0.8961406621795219,demand-linked 10%
+43,A,stockout_rate,0.34182701466946086,demand-linked 10%
+43,B,cost_per_demand,0.2096720540729577,demand-linked 10%
+43,B,fill_rate,0.8838383667346381,demand-linked 10%
+43,B,stockout_rate,0.36416460278148216,demand-linked 10%
+43,C,cost_per_demand,0.20925484554086513,demand-linked 10%
+43,C,fill_rate,0.8885888687212606,demand-linked 10%
+43,C,stockout_rate,0.3469708515907792,demand-linked 10%
+43,A,injected_recovery,0.9035463702591605,demand-linked 10%
+43,A,promo_extra_cost,0.0032563295397691205,demand-linked 10%
+43,B,injected_recovery,0.785060828461362,demand-linked 10%
+43,B,promo_extra_cost,0.010186687609659018,demand-linked 10%
+43,C,injected_recovery,0.8619086235583647,demand-linked 10%
+43,C,promo_extra_cost,0.007803149932878339,demand-linked 10%
+42,A,wape,0.2865,demand-linked 30% (main)
+42,A,bias,-0.0388,demand-linked 30% (main)
+42,B,wape,0.3139,demand-linked 30% (main)
+42,B,bias,-0.1516,demand-linked 30% (main)
+42,C,wape,0.2957,demand-linked 30% (main)
+42,C,bias,-0.0528,demand-linked 30% (main)
+42,A,row_spearman_vs_A,1.0,demand-linked 30% (main)
+42,A,discount_share_change,0.0,demand-linked 30% (main)
+42,A,activity_share_change,0.0,demand-linked 30% (main)
+42,A,recent_sales_share_change,0.0,demand-linked 30% (main)
+42,B,row_spearman_vs_A,0.8565894974590627,demand-linked 30% (main)
+42,B,discount_share_change,-0.2113059036784829,demand-linked 30% (main)
+42,B,activity_share_change,-0.4028458365596257,demand-linked 30% (main)
+42,B,recent_sales_share_change,0.0082405504919553,demand-linked 30% (main)
+42,C,row_spearman_vs_A,0.887171654432524,demand-linked 30% (main)
+42,C,discount_share_change,0.0170713796121904,demand-linked 30% (main)
+42,C,activity_share_change,-0.0935743611797506,demand-linked 30% (main)
+42,C,recent_sales_share_change,-0.0644611570087675,demand-linked 30% (main)
+42,A,promo_uplift_vs_A,1.0,demand-linked 30% (main)
+42,B,promo_uplift_vs_A,0.6128146392171239,demand-linked 30% (main)
+42,C,promo_uplift_vs_A,0.9772009126382964,demand-linked 30% (main)
+42,A,cost_per_demand,0.2048409846461652,demand-linked 30% (main)
+42,A,fill_rate,0.8961406621795219,demand-linked 30% (main)
+42,A,stockout_rate,0.3418270146694608,demand-linked 30% (main)
+42,B,cost_per_demand,0.2302467973630783,demand-linked 30% (main)
+42,B,fill_rate,0.8436936466688445,demand-linked 30% (main)
+42,B,stockout_rate,0.4380358163459706,demand-linked 30% (main)
+42,C,cost_per_demand,0.2132587765901986,demand-linked 30% (main)
+42,C,fill_rate,0.8822641637839344,demand-linked 30% (main)
+42,C,stockout_rate,0.368879786626024,demand-linked 30% (main)
+42,A,injected_recovery,0.9035463702591604,demand-linked 30% (main)
+42,A,promo_extra_cost,0.0032563295397691,demand-linked 30% (main)
+42,B,injected_recovery,0.5828536693691109,demand-linked 30% (main)
+42,B,promo_extra_cost,0.0257281321524814,demand-linked 30% (main)
+42,C,injected_recovery,0.8425758345216419,demand-linked 30% (main)
+42,C,promo_extra_cost,0.0079120512893606,demand-linked 30% (main)
+43,A,wape,0.2865,demand-linked 30% (main)
+43,A,bias,-0.0388,demand-linked 30% (main)
+43,B,wape,0.3184,demand-linked 30% (main)
+43,B,bias,-0.1599,demand-linked 30% (main)
+43,C,wape,0.294,demand-linked 30% (main)
+43,C,bias,-0.0534,demand-linked 30% (main)
+43,A,row_spearman_vs_A,1.0,demand-linked 30% (main)
+43,A,discount_share_change,0.0,demand-linked 30% (main)
+43,A,activity_share_change,0.0,demand-linked 30% (main)
+43,A,recent_sales_share_change,0.0,demand-linked 30% (main)
+43,B,row_spearman_vs_A,0.8585945793337098,demand-linked 30% (main)
+43,B,discount_share_change,-0.2015966444572947,demand-linked 30% (main)
+43,B,activity_share_change,-0.4258945444802336,demand-linked 30% (main)
+43,B,recent_sales_share_change,0.0054439304502709,demand-linked 30% (main)
+43,C,row_spearman_vs_A,0.8889966120835686,demand-linked 30% (main)
+43,C,discount_share_change,0.0698892296326489,demand-linked 30% (main)
+43,C,activity_share_change,-0.0995471873325334,demand-linked 30% (main)
+43,C,recent_sales_share_change,-0.0642192744391412,demand-linked 30% (main)
+43,A,promo_uplift_vs_A,1.0,demand-linked 30% (main)
+43,B,promo_uplift_vs_A,0.6122183965344837,demand-linked 30% (main)
+43,C,promo_uplift_vs_A,1.0103945906704872,demand-linked 30% (main)
+43,A,cost_per_demand,0.2048409846461652,demand-linked 30% (main)
+43,A,fill_rate,0.8961406621795219,demand-linked 30% (main)
+43,A,stockout_rate,0.3418270146694608,demand-linked 30% (main)
+43,B,cost_per_demand,0.2351821490170225,demand-linked 30% (main)
+43,B,fill_rate,0.8366320259068036,demand-linked 30% (main)
+43,B,stockout_rate,0.4416555534387502,demand-linked 30% (main)
+43,C,cost_per_demand,0.2122095236755279,demand-linked 30% (main)
+43,C,fill_rate,0.8838778416398237,demand-linked 30% (main)
+43,C,stockout_rate,0.3630691560297199,demand-linked 30% (main)
+43,A,injected_recovery,0.9035463702591604,demand-linked 30% (main)
+43,A,promo_extra_cost,0.0032563295397691,demand-linked 30% (main)
+43,B,injected_recovery,0.5846863651514345,demand-linked 30% (main)
+43,B,promo_extra_cost,0.0244910951131886,demand-linked 30% (main)
+43,C,injected_recovery,0.7908625805565083,demand-linked 30% (main)
+43,C,promo_extra_cost,0.0117073028348235,demand-linked 30% (main)
+42,A,wape,0.2865,demand-linked 50%
+42,A,bias,-0.0388,demand-linked 50%
+42,B,wape,0.3561,demand-linked 50%
+42,B,bias,-0.2412,demand-linked 50%
+42,C,wape,0.2998,demand-linked 50%
+42,C,bias,-0.0582,demand-linked 50%
+42,A,row_spearman_vs_A,1.0,demand-linked 50%
+42,A,discount_share_change,0.0,demand-linked 50%
+42,A,activity_share_change,0.0,demand-linked 50%
+42,A,recent_sales_share_change,0.0,demand-linked 50%
+42,B,row_spearman_vs_A,0.7609576510446076,demand-linked 50%
+42,B,discount_share_change,-0.406815418438625,demand-linked 50%
+42,B,activity_share_change,-0.6116987341156013,demand-linked 50%
+42,B,recent_sales_share_change,-0.012773246328634746,demand-linked 50%
+42,C,row_spearman_vs_A,0.8486414455110107,demand-linked 50%
+42,C,discount_share_change,-0.0009256397882294598,demand-linked 50%
+42,C,activity_share_change,0.05312984957320421,demand-linked 50%
+42,C,recent_sales_share_change,-0.11751454228109304,demand-linked 50%
+42,A,promo_uplift_vs_A,1.0,demand-linked 50%
+42,B,promo_uplift_vs_A,0.3651921626665235,demand-linked 50%
+42,C,promo_uplift_vs_A,0.9669501948891589,demand-linked 50%
+42,A,cost_per_demand,0.20484098464616526,demand-linked 50%
+42,A,fill_rate,0.8961406621795219,demand-linked 50%
+42,A,stockout_rate,0.34182701466946086,demand-linked 50%
+42,B,cost_per_demand,0.269322933930897,demand-linked 50%
+42,B,fill_rate,0.7850101365054318,demand-linked 50%
+42,B,stockout_rate,0.5207658601638407,demand-linked 50%
+42,C,cost_per_demand,0.21767383611493743,demand-linked 50%
+42,C,fill_rate,0.8729029772243918,demand-linked 50%
+42,C,stockout_rate,0.38964564678986474,demand-linked 50%
+42,A,injected_recovery,0.9035463702591605,demand-linked 50%
+42,A,promo_extra_cost,0.0032563295397691205,demand-linked 50%
+42,B,injected_recovery,0.3633306258242082,demand-linked 50%
+42,B,promo_extra_cost,0.04956070869498119,demand-linked 50%
+42,C,injected_recovery,0.8460521935546655,demand-linked 50%
+42,C,promo_extra_cost,0.005908378268198039,demand-linked 50%
+43,A,wape,0.2865,demand-linked 50%
+43,A,bias,-0.0388,demand-linked 50%
+43,B,wape,0.3577,demand-linked 50%
+43,B,bias,-0.2417,demand-linked 50%
+43,C,wape,0.2977,demand-linked 50%
+43,C,bias,-0.0568,demand-linked 50%
+43,A,row_spearman_vs_A,1.0,demand-linked 50%
+43,A,discount_share_change,0.0,demand-linked 50%
+43,A,activity_share_change,0.0,demand-linked 50%
+43,A,recent_sales_share_change,0.0,demand-linked 50%
+43,B,row_spearman_vs_A,0.7553088650479954,demand-linked 50%
+43,B,discount_share_change,-0.4382477616684687,demand-linked 50%
+43,B,activity_share_change,-0.6294693675327814,demand-linked 50%
+43,B,recent_sales_share_change,-0.011613412707319304,demand-linked 50%
+43,C,row_spearman_vs_A,0.8387724449463579,demand-linked 50%
+43,C,discount_share_change,0.05685553775177521,demand-linked 50%
+43,C,activity_share_change,-0.09885299436182593,demand-linked 50%
+43,C,recent_sales_share_change,-0.1122173252871781,demand-linked 50%
+43,A,promo_uplift_vs_A,1.0,demand-linked 50%
+43,B,promo_uplift_vs_A,0.3484104221628374,demand-linked 50%
+43,C,promo_uplift_vs_A,1.0558059417425985,demand-linked 50%
+43,A,cost_per_demand,0.20484098464616526,demand-linked 50%
+43,A,fill_rate,0.8961406621795219,demand-linked 50%
+43,A,stockout_rate,0.34182701466946086,demand-linked 50%
+43,B,cost_per_demand,0.2698793343381276,demand-linked 50%
+43,B,fill_rate,0.7849835862383805,demand-linked 50%
+43,B,stockout_rate,0.5229567536673652,demand-linked 50%
+43,C,cost_per_demand,0.21604257028592977,demand-linked 50%
+43,C,fill_rate,0.8758570809172329,demand-linked 50%
+43,C,stockout_rate,0.3855496285006668,demand-linked 50%
+43,A,injected_recovery,0.9035463702591605,demand-linked 50%
+43,A,promo_extra_cost,0.0032563295397691205,demand-linked 50%
+43,B,injected_recovery,0.35283990071710275,demand-linked 50%
+43,B,promo_extra_cost,0.050780684765782846,demand-linked 50%
+43,C,injected_recovery,0.8414904134933104,demand-linked 50%
+43,C,promo_extra_cost,0.006639800898717491,demand-linked 50%

@@ -1,0 +1,16 @@
+{
+  "params": {
+    "objective": "regression",
+    "learning_rate": 0.03,
+    "num_leaves": 63,
+    "min_child_samples": 50,
+    "feature_fraction": 0.6,
+    "bagging_fraction": 0.7,
+    "lambda_l2": 1.0,
+    "boosting": "gbdt"
+  },
+  "n_rounds": 259,
+  "valid_wape": 0.2957,
+  "tuned_on": "condition A, validation = last 14 train days",
+  "seed": 42
+}

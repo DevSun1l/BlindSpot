@@ -76,14 +76,18 @@ def main() -> None:
 
     # Realised mask shares (the 50% setting can fall short: probabilities are capped at 1).
     out("## Settings\n")
-    out("| setting | target mask rate | masking | realised share of clean training days masked (seed 42) |")
-    out("|---|---|---|---|")
+    out("| setting | target mask rate | masking | share of clean training days masked (seed 42) | "
+        "share actually censored (sales lost) |")
+    out("|---|---|---|---|---|")
     shares = {}
     for name, (rate, power) in SETTINGS.items():
         cond, _ = build_conditions(panel, ConditionConfig(mask_rate=rate, demand_power=power, seed=42))
         cand = (cond.split == "train") & (cond.is_clean_day == 1)
         shares[name] = cond.loc[cand, "is_masked"].mean()
-        out(f"| {name} | {rate:.0%} | {'random' if power == 0 else 'demand-linked'} | {shares[name]:.1%} |")
+        lost = ((cond.is_masked == 1) & ~np.isclose(cond.sales_B, cond.sales_true))[cand].mean()
+        out(f"| {name} | {rate:.0%} | {'random' if power == 0 else 'demand-linked'} | {shares[name]:.1%} | {lost:.1%} |")
+    out("\nA masked day whose simulated stockout starts after its last sale loses nothing, so the share actually "
+        "censored is below the masked share.\n")
     out("")
     for name, (rate, _) in SETTINGS.items():
         check(abs(shares[name] - rate) < 0.03, f"{name}: realised mask share within 3 points of target")

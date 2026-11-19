@@ -88,6 +88,10 @@ several papers were read at abstract or repository level only, so absence of evi
 | **B, censored** | On 30% of stockout-free training days, a stockout is simulated: only sales before a start hour are kept |
 | **C, matched noise** | The same days and the same absolute distortion as B, with a random sign |
 
+- **Effective censoring rate:** 30% of stockout-free training days are masked. On 15.9% of those days nothing
+  was sold after the simulated stockout hour, so they lose nothing. The share of days whose sales are actually
+  reduced is therefore **25.2%**. Masking rates quoted below are nominal; Step 14 reports both.
+
 - **Which days are censored** is demand-linked, as with real stockouts: masked days had 1.27× their series'
   average sales, against 0.88× for other clean days.
 - **Simulated start hours** are drawn from the real distribution of stockout start hours.
@@ -171,10 +175,15 @@ of test days.
 | Activity-flag importance share, change vs A | - | -40% | -9% |
 | Deletion gain over random order | +0.315 | +0.327 | +0.343 |
 | Insertion gain over random order | +0.343 | +0.341 | +0.363 |
-| Known promotion effect recovered (what-if) | 91% | 59% | 85% |
-| Known promotion effect recovered (SHAP) | 87% | 55% | 82% |
+| Known promotion effect recovered (what-if), all 20,996 clean test days | 90% | 58% | 84% |
+| Known promotion effect recovered (what-if), the 4,134 days with the injected promotion | 91% | 59% | 85% |
+| Known promotion effect recovered (SHAP), the 4,134 days with the injected promotion | 87% | 55% | 82% |
 | Rank of the promotion feature in SHAP | 2nd of 23 | 2nd of 23 | 2nd of 23 |
 | Real-lever promo what-if (activity + 20% discount), share of A's uplift | - | 61% | 98% |
+
+The two what-if rows use the same model and definition but average over different test days: Step 8 uses only
+the days that carry the injected promotion, while Steps 9–11 use every clean test day. The all-days figure is
+the one used in the robustness and falsification tables.
 
 **Answer: yes.** Censoring changes explanations more than matched noise does. It does so mainly for the
 promotion features, and it shrinks the learned promotion effect by about a third relative to A.
@@ -199,7 +208,7 @@ promotion days, so B sees promotions that "did not sell as much".
 | Change from A to B | Size |
 |---|---|
 | Forecast WAPE | +10% |
-| Learned promotion effect (known-effect test) | -35% (59% vs 91% recovered) |
+| Learned promotion effect (known-effect test) | -35% (58% vs 90% recovered) |
 | Promotion what-if on real levers | -39% |
 | Importance share of activity flag | -40% |
 | Extra cost of ordering a promotion on the what-if | about 8× A's |
@@ -267,7 +276,8 @@ Two ways the main finding could be an artefact of the setup were tested (Step 14
 | Everyday ordering cost (A: 0.205) | 0.220 | 0.210 | 0.233 | 0.270 | 0.209 | 0.213 | 0.217 |
 | Extra promotion cost from what-if error (A: +0.003) | +0.008 | +0.010 | +0.025 | +0.050 | +0.006 | +0.010 | +0.006 |
 
-(10%, 30% and 50% are demand-linked masking rates; C at random 30% recovers 86%.)
+(10%, 30% and 50% are nominal demand-linked masking rates; the shares of training days whose sales are
+actually reduced are 8.4%, 25.2% and 42.2%, and 23.7% for random 30%. C at random 30% recovers 86%.)
 
 - **Random masking: the finding holds.** With masking unrelated to demand, B is still worse than matched noise on
   all 8 metrics checked, in both seeds.

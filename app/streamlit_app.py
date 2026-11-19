@@ -1,10 +1,9 @@
-"""BlindSpot prototype (Step 12).
+"""Interactive Streamlit app for comparing models A (clean), B (censored), and C (matched noise).
 
-Run:  .\\.venv\\Scripts\\streamlit.exe run app\\streamlit_app.py
+Run:
+    .\\.venv\\Scripts\\streamlit.exe run app\\streamlit_app.py
 
-Pick a store-product and a test day, then compare the clean (A), censored (B) and matched-noise (C) models:
-the forecast, the SHAP explanation, a what-if on the promotion levers, and the order it leads to.
-The app only reads what Steps 3-11 saved; it never retrains.
+Reads precomputed pipeline artifacts and trained boosters from disk without retraining.
 """
 from __future__ import annotations
 
@@ -39,7 +38,7 @@ def assets() -> dict:
 A = assets()
 opts = A["options"]
 
-# ------------------------------------------------------------------ sidebar: selection
+# Sidebar: series, forecast-day, and relative newsvendor cost controls.
 st.sidebar.title("BlindSpot")
 st.sidebar.caption("How stockout censoring changes forecasts, explanations and orders.")
 only_promo = st.sidebar.checkbox("Only series with a promotion in the test week", value=False)
@@ -87,9 +86,9 @@ def fig_layout(fig: go.Figure, h: int = 320, **kw) -> go.Figure:
     return fig
 
 
-# ================================================================== tab 1
+# Tab 1: single-series forecast, SHAP attribution, promotion what-if, and order quantity.
 with tab1:
-    # ---- forecast headline
+    # Headline demand and per-model forecast metrics.
     cols = st.columns(4)
     cols[0].metric("True demand", f"{true_d:.2f}" if clean_day else "unknown",
                    help=None if clean_day else "A real stockout happened that day, so sales understate demand.")
@@ -100,7 +99,7 @@ with tab1:
     if not clean_day:
         st.info("This was a real stockout day: recorded sales are a lower bound, so forecasts are not scored here.")
 
-    # ---- sales chart
+    # Historical sales, simulated/real stockout markers, and test-week forecasts.
     h = history(A["hist"], sid)
     fig = go.Figure()
     fig.add_scatter(x=h.dt, y=h.sales_true, mode="lines+markers", name="recorded sales (A's training data)",
@@ -124,7 +123,7 @@ with tab1:
     st.caption("Left of the dashed line: last 6 training weeks. Right: test week with each model's next-day forecast. "
                "Shaded: the selected day. Triangles show how much B was told was sold on its censored days.")
 
-    # ---- SHAP
+    # Local SHAP attribution comparison for the selected forecast day.
     st.subheader("Why each model forecasts what it does (SHAP)")
     sv, base = explain_row(A["explainers"], row)
     grouped = st.toggle("Group related features (recent sales, calendar, promotion, weather, identity)", value=False)
@@ -142,21 +141,25 @@ with tab1:
                            for r in stab.itertuples())
                + ". SHAP shows what each model relies on, not what causes sales.")
 
-    # ---- what-if
+    # Promotion what-if controls restricted to planned levers within training support.
     st.subheader("What-if: change tomorrow's promotion plan")
     st.caption("Only the planned levers can change. Sales history, calendar, weather and product are fixed, so the "
                "scenario cannot rewrite the past. Discount is limited to the range seen in training.")
     lo, hi = LEVER_LIMITS["discount"]
-    w1, w2 = st.columns([3, 1])
-    start = float(np.clip(round(r0.discount * 20) / 20, lo, hi))        # slider moves in 0.05 steps
-    disc = w1.slider("Price multiplier (1.00 = no discount, 0.80 = 20% off)", float(lo), float(hi), start, 0.05,
-                     key=f"disc_{sid}_{day}")
-    act = w2.toggle("Promotion event (activity_flag)", value=bool(r0.activity_flag), key=f"act_{sid}_{day}")
     st.caption(f"Actual plan for this day: price multiplier {r0.discount:.2f}, promotion event "
                f"{'on' if r0.activity_flag else 'off'}.")
-    changed = not (np.isclose(disc, start) and int(act) == int(r0.activity_flag))
-    plan = {"discount": disc, "activity_flag": int(act)} if changed else {}   # untouched controls = actual plan
-    wi = {c: whatif(A["boosters"][c], row, {}, plan).iloc[0] for c in "ABC"}     # baseline {} = the row as it is
+    # An explicit switch decides whether the user's plan is used; slider positions alone never do, so a
+    # deliberately chosen value is always used exactly and an untouched page always shows the actual plan.
+    changed = st.toggle("Try a different plan", value=False, key=f"try_{sid}_{day}")
+    w1, w2 = st.columns([3, 1])
+    start = float(np.clip(round(r0.discount * 20) / 20, lo, hi))        # nearest 0.05 step inside the allowed range
+    disc = w1.slider("Price multiplier (1.00 = no discount, 0.80 = 20% off)", float(lo), float(hi), start, 0.05,
+                     key=f"disc_{sid}_{day}", disabled=not changed)
+    act = w2.toggle("Promotion event (activity_flag)", value=bool(r0.activity_flag), key=f"act_{sid}_{day}",
+                    disabled=not changed)
+    # Empty overrides keep the row's observed promotion values as the baseline.
+    plan = {"discount": disc, "activity_flag": int(act)} if changed else {}
+    wi = {c: whatif(A["boosters"][c], row, {}, plan).iloc[0] for c in "ABC"}
     wtab = pd.DataFrame([{"model": CONDITIONS[c], "forecast with actual plan": wi[c].base,
                           "forecast with your plan": wi[c].scenario, "uplift (units)": wi[c].uplift,
                           "uplift (%)": wi[c].uplift / wi[c].base if wi[c].base > 0 else np.nan} for c in "ABC"])
@@ -173,7 +176,7 @@ with tab1:
     st.caption("Across all test days, B's promotion uplift was about 61% of A's, and on a known injected effect "
                "the clean model recovered about 90% against about 59% for the censored model (Step 9).")
 
-    # ---- order
+    # Newsvendor order recommendation and demand-cost curve under the selected plan.
     st.subheader("Recommended order")
     safety = safety_for(A["val_errors"], cu, co)
     fc = {c: float(wi[c].scenario) for c in "ABC"}
@@ -201,7 +204,7 @@ with tab1:
     st.caption("Each line: the cost of that model's order if demand turned out to be x. Left of an order's minimum "
                "you waste stock; right of it you lose sales (which costs more per unit).")
 
-# ================================================================== tab 2
+# Tab 2: global SHAP importance shares, stability, and faithfulness summary.
 with tab2:
     st.subheader("Which features each model relies on (all 2,000 explained test rows)")
     g2 = st.toggle("Group related features", value=True, key="g2")
@@ -238,7 +241,7 @@ with tab2:
             st.caption("SHAP describes each model faithfully (similar gains), but B has learned a promotion effect "
                        "that is far too small, while still ranking it 2nd: the chart looks the same, the size is wrong.")
 
-# ================================================================== tab 3
+# Tab 3: cross-seed headline metrics table and takeaways.
 with tab3:
     st.subheader("Results across the three conditions")
     sr, rb = A["seed_results"], A["robustness"]

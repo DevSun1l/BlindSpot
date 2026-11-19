@@ -1,13 +1,11 @@
-"""Forecast metrics, following the frn-50k-baseline evaluation protocol.
+"""Forecast evaluation metrics following the frn-50k-baseline protocol.
 
-Protocol (frn-50k-baseline, Apache 2.0): score only stockout-free test days; compute each metric
-per test date over all series, then average over the dates. Groups: all, low-sales (mean daily
-train sales < 1) and high-sales (>= 1).
-
-  WAPE = sum|pred - y| / sum y         main error metric
-  WPE  = sum(pred - y) / sum y         bias (negative = under-forecast)
+Scores stockout-free test days only, computing each metric per date across all
+series and then averaging across dates for all, low-sales, and high-sales groups:
+  WAPE = sum|pred - y| / sum y
+  WPE  = sum(pred - y) / sum y   (negative indicates under-forecasting)
   MAE  = mean|pred - y|
-  RMSE = sqrt(mean (pred - y)^2)       added by BlindSpot
+  RMSE = sqrt(mean((pred - y)^2))
 """
 from __future__ import annotations
 
@@ -16,6 +14,7 @@ import pandas as pd
 
 
 def _daily(df: pd.DataFrame, pred: str, y: str) -> pd.DataFrame:
+    """Compute per-date error metrics across all rows on each date."""
     e = df[pred] - df[y]
     g = pd.DataFrame({"dt": df["dt"], "abs": e.abs(), "err": e, "sq": e ** 2, "y": df[y]}).groupby("dt")
     s = g.sum()
@@ -25,7 +24,7 @@ def _daily(df: pd.DataFrame, pred: str, y: str) -> pd.DataFrame:
 
 
 def evaluate(df: pd.DataFrame, pred: str, y: str = "sales_true") -> pd.DataFrame:
-    """df: test rows with columns dt, sales_group, is_clean_day, <pred>, <y>. Returns one row per group."""
+    """Evaluate `pred` against `y` on clean days (`is_clean_day == 1`), returning one row per sales group."""
     d = df[df["is_clean_day"] == 1]
     rows = []
     for name, sub in [("all", d), ("low", d[d.sales_group == "low"]), ("high", d[d.sales_group == "high"])]:
@@ -36,11 +35,14 @@ def evaluate(df: pd.DataFrame, pred: str, y: str = "sales_true") -> pd.DataFrame
 
 def bootstrap_wape(df: pd.DataFrame, pred: str, y: str = "sales_true", n_boot: int = 500, seed: int = 0,
                    cluster: str = "store_id") -> tuple[float, float]:
-    """95% CI of overall WAPE (pooled), resampling stores with replacement (series within a store are correlated)."""
+    """Return a 95% cluster-bootstrap CI for WAPE as reported by `evaluate` (mean over dates of each date's WAPE),
+    resampling `cluster` (stores) with replacement."""
     d = df[df["is_clean_day"] == 1]
-    agg = d.assign(a=(d[pred] - d[y]).abs()).groupby(cluster)[["a", y]].sum()
-    a, t = agg["a"].to_numpy(), agg[y].to_numpy()
+    # Per cluster and date: sums of |error| and of y, so within-store correlation is preserved.
+    agg = d.assign(a=(d[pred] - d[y]).abs()).groupby([cluster, "dt"], observed=True)[["a", y]].sum()
+    a = agg["a"].unstack("dt", fill_value=0.0).to_numpy()          # (n_clusters, n_dates)
+    t = agg[y].unstack("dt", fill_value=0.0).to_numpy()
     rng = np.random.default_rng(seed)
-    idx = rng.integers(0, len(agg), size=(n_boot, len(agg)))
-    w = a[idx].sum(axis=1) / t[idx].sum(axis=1)
+    idx = rng.integers(0, a.shape[0], size=(n_boot, a.shape[0]))
+    w = (a[idx].sum(axis=1) / t[idx].sum(axis=1)).mean(axis=1)    # daily WAPE per draw, then mean over dates
     return float(np.percentile(w, 2.5)), float(np.percentile(w, 97.5))

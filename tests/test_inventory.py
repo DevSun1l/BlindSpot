@@ -1,4 +1,4 @@
-"""Step 10 tests: newsvendor outcomes, safety quantiles and order rule."""
+"""Unit tests for newsvendor outcomes, critical ratio conversions, and safety-stock quantiles."""
 import numpy as np
 import pandas as pd
 
@@ -28,7 +28,13 @@ def test_safety_and_order_rule():
     assert np.isclose(sq["low"], np.quantile(np.arange(100.0), 0.9))
     assert np.isclose(sq["high"], 10 * sq["low"])
     q = order_quantity(np.array([1.0, -5000.0]), np.array(["low", "high"]), sq)
-    assert np.isclose(q[0], 1 + sq["low"]) and q[1] == 0          # never negative
+    assert np.isclose(q[0], 1 + sq["low"]) and q[1] == 0  # Orders are clipped at 0
+
+
+def test_order_rule_rejects_unknown_group():
+    import pytest
+    with pytest.raises(ValueError):
+        order_quantity(np.array([1.0, 2.0]), np.array(["low", "medium"]), {"low": 0.1, "high": 0.2})
 
 
 def test_newsvendor_quantile_is_cost_optimal():

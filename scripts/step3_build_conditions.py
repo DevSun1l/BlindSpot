@@ -1,10 +1,11 @@
-"""Step 3: build the clean (A), censored (B) and matched-noise (C) training conditions.
+"""Build clean (A), stockout-censored (B), and matched-noise (C) training conditions.
 
 Outputs:
-  data/processed/conditions.parquet   one row per series-day (study sample), sales under A/B/C + truth
+  data/processed/conditions.parquet   per-series-day sales under A/B/C and ground truth
   outputs/step3_conditions_report.md
   outputs/step3_conditions.png
-Usage:  .\\.venv\\Scripts\\python.exe scripts\\step3_build_conditions.py [--mask-rate 0.3] [--demand-power 1.0]
+Usage:
+    .\\.venv\\Scripts\\python.exe scripts\\step3_build_conditions.py [--mask-rate 0.3] [--demand-power 1.0]
 """
 from __future__ import annotations
 
@@ -56,6 +57,10 @@ def main() -> None:
     out("## Masking\n")
     out(f"- Candidate days (clean train days): {cand.sum():,}; masked: {m.sum():,} "
         f"({m.sum() / cand.sum():.1%} of candidates, target {cfg.mask_rate:.0%})")
+    changed = m & ~np.isclose(df.sales_B, df.sales_true)
+    out(f"- Effective censoring: {changed.sum():,} masked days ({changed.sum() / cand.sum():.1%} of candidates) actually "
+        f"lose sales; the other {(m & ~changed).sum() / m.sum():.1%} of masked days had no sales after the simulated "
+        "stockout hour, so censoring leaves them unchanged (in B and C alike).")
     per_series = df[cand].groupby("series_id").is_masked.mean()
     out(f"- Masked share per series: median {per_series.median():.1%}, 5th-95th pct "
         f"{per_series.quantile(.05):.1%} to {per_series.quantile(.95):.1%}")
@@ -66,7 +71,7 @@ def main() -> None:
     out(f"- Demand link: masked days had true sales {rel[m].mean():.2f}x their series' clean-day mean; "
         f"unmasked clean days {rel[cand & ~m].mean():.2f}x")
     if cfg.demand_power > 0:
-        check(rel[m].mean() > rel[cand & ~m].mean(), "masked days are higher-demand days on average (option B)")
+        check(rel[m].mean() > rel[cand & ~m].mean(), "masked days are higher-demand days on average")
 
     out("\n## Simulated stockout hour vs real pattern\n")
     sim = df.loc[m, "sim_stockout_hour"].value_counts(normalize=True).sort_index()
@@ -96,7 +101,7 @@ def main() -> None:
         out(f"- {col}: total train sales {df.loc[tr, col].sum() / df.loc[tr, 'sales_A'].sum():.1%} of A; "
             f"zero-sale days {(df.loc[tr, col] == 0).mean():.1%}")
 
-    # Chart
+    # Diagnostic summary plots: start-hour match, relative distortion, and an example series.
     fig, ax = plt.subplots(1, 3, figsize=(16, 4))
     ax[0].bar(start_dist.index - 0.2, start_dist.values, width=0.4, label="real", color="#E45756")
     ax[0].bar(sim.index + 0.2, sim.values, width=0.4, label="simulated", color="#4C78A8")

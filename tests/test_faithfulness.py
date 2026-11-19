@@ -1,4 +1,4 @@
-"""Step 8 tests: deletion/insertion, promo injection and what-if on small synthetic data."""
+"""Unit tests for deletion/insertion curves, synthetic promo injection, and what-if recovery."""
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -14,7 +14,8 @@ def _model(seed=0, n=3000):
     for c in CATEGORICAL:
         X[c] = pd.Categorical(rng.integers(0, 4, n))
     X[PROMO_FEATURE] = rng.integers(0, 2, n)
-    y = 3 * X["roll_mean_7"] + 2 * X["discount"] + 1.5 * X[PROMO_FEATURE] + rng.normal(0, 0.1, n)
+    # Offset keeps the target positive, so forecasts clipped at 0 are not affected.
+    y = 10 + 3 * X["roll_mean_7"] + 2 * X["discount"] + 1.5 * X[PROMO_FEATURE] + rng.normal(0, 0.1, n)
     feats = FEATURES + [PROMO_FEATURE]
     b = lgb.train({"verbosity": -1, "seed": 0, "num_leaves": 15}, lgb.Dataset(X[feats], y, categorical_feature=CATEGORICAL), 100)
     return b, X, feats
@@ -43,4 +44,4 @@ def test_inject_promo_scales_daily_and_hourly():
     assert np.allclose(q.loc[on, "sale_amount"], 36.0) and np.allclose(q.loc[~on, "sale_amount"], 24.0)
     assert np.allclose([h.sum() for h in q.hours_sale], q.sale_amount)
     assert np.allclose(q.demand_no_promo, 24.0)
-    assert np.allclose(p.sale_amount, 24.0)          # original untouched
+    assert np.allclose(p.sale_amount, 24.0)  # Input DataFrame must remain unmodified

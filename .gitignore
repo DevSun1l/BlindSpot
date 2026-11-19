@@ -6,6 +6,16 @@ data/*
 !data/.gitkeep
 outputs/*
 !outputs/.gitkeep
+# Track results that the write-up cites (reports, tables, charts) and the frozen model configuration.
+# Run logs and trained model binaries stay local: models are rebuilt deterministically from lgb_config.json.
+!outputs/*.md
+!outputs/*.csv
+!outputs/*.png
+!outputs/eda/
+!outputs/models/
+outputs/models/*
+!outputs/models/lgb_config.json
+.claude/
 conversation.md
 .ipynb_checkpoints/
 .DS_Store

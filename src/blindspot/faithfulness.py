@@ -1,20 +1,13 @@
-"""Step 8: faithfulness tests for SHAP explanations.
+"""Faithfulness evaluation for SHAP explanations.
 
-1. Deletion / insertion curves
-   Deletion: replace features with a neutral reference value one at a time, in order of |SHAP|
-   (largest first). If SHAP is faithful, the forecast should move away from its original value
-   faster than when features are removed in random order.
-   Insertion: start from the all-reference input and restore features in |SHAP| order; the forecast
-   should return to its original value faster than in random order.
-   Reference values: median (numeric) / most frequent value (categorical) of condition A's training rows.
-   Score per row: area under the normalised curve (mean over k = 1..n_features); higher = more faithful.
-
-2. Injected promotion recovery (ground truth known)
-   A synthetic binary feature `test_promo` is switched on for a random share of series-days, independent
-   of everything else, and the TRUE demand (daily and hourly) is multiplied by (1 + effect) on those days.
-   Conditions A/B/C are then rebuilt from this modified truth, so censoring treats promo days like any
-   other high-demand day. Each model's estimate of the promo effect (SHAP and what-if) is compared with
-   the known effect.
+Implements two complementary evaluations:
+1. Deletion and insertion curves: progressively replace (or restore) features
+   with training reference values in descending |SHAP| order vs random order,
+   scoring per-row normalized AUC.
+2. Injected promotion recovery: adds an independent synthetic binary feature
+   `test_promo` that scales daily and hourly demand by (1 + effect), rebuilds
+   conditions A/B/C from the modified demand, and compares each model's
+   estimated uplift against the known ground-truth effect.
 """
 from __future__ import annotations
 
@@ -26,6 +19,7 @@ PROMO_FEATURE = "test_promo"
 
 
 def reference_values(train: pd.DataFrame, features: list[str]) -> dict:
+    """Compute neutral replacement values: training mode for categoricals, median for numerics."""
     ref = {}
     for f in features:
         s = train[f]
@@ -34,6 +28,7 @@ def reference_values(train: pd.DataFrame, features: list[str]) -> dict:
 
 
 def _replace(X: pd.DataFrame, mask: np.ndarray, ref: dict, features: list[str]) -> pd.DataFrame:
+    """Return a copy of `X[features]` with entries where `mask` is True set to `ref[f]`."""
     Z = X[features].copy()
     for j, f in enumerate(features):
         m = mask[:, j]
@@ -44,8 +39,12 @@ def _replace(X: pd.DataFrame, mask: np.ndarray, ref: dict, features: list[str]) 
 
 def deletion_insertion(booster: lgb.Booster, X: pd.DataFrame, sv: pd.DataFrame, ref: dict, features: list[str],
                        n_random: int = 5, seed: int = 0, min_gap: float = 0.01) -> pd.DataFrame:
-    """Returns per-row AUC scores: del_shap, del_random, ins_shap, ins_random (higher = more faithful).
-    Rows whose forecast barely changes when every feature is replaced (|gap| < min_gap) are dropped."""
+    """Compute per-row deletion and insertion AUCs under |SHAP| ordering vs `n_random` random orderings.
+
+    Rows where full feature replacement changes the prediction by less than
+    `min_gap` are excluded to avoid dividing by near-zero denominators.
+    Mean curves across retained rows are stored in `result.attrs["curves"]`.
+    """
     n, p = len(X), len(features)
     f_x = booster.predict(X[features])
     f_ref = booster.predict(_replace(X, np.ones((n, p), bool), ref, features))
@@ -59,15 +58,17 @@ def deletion_insertion(booster: lgb.Booster, X: pd.DataFrame, sv: pd.DataFrame, 
 
     out = {}
     for name, order in orders.items():
+        # Invert permutation `order` to get each feature's rank position per row.
         rank = np.empty_like(order)
         rank[np.arange(n)[:, None], order] = np.arange(p)[None, :]
         dele, ins = np.zeros((n, p)), np.zeros((n, p))
         for k in range(1, p + 1):
-            removed = rank < k                     # top-k features (by this order) replaced
+            removed = rank < k
             f_del = booster.predict(_replace(X, removed, ref, features))
-            f_ins = booster.predict(_replace(X, ~removed, ref, features))   # only top-k kept
-            dele[:, k - 1] = (f_del - f_x) / np.where(keep, gap, 1)        # 0 -> 1 as features are removed
-            ins[:, k - 1] = 1 - (f_ins - f_x) / np.where(keep, gap, 1)     # 0 -> 1 as features are restored
+            f_ins = booster.predict(_replace(X, ~removed, ref, features))
+            # Normalize trajectories to move from 0 toward 1 as features are deleted or inserted.
+            dele[:, k - 1] = (f_del - f_x) / np.where(keep, gap, 1)
+            ins[:, k - 1] = 1 - (f_ins - f_x) / np.where(keep, gap, 1)
         out[name] = (np.clip(dele, -1, 2).mean(axis=1), np.clip(ins, -1, 2).mean(axis=1), dele, ins)
 
     res = pd.DataFrame({"del_shap": out["shap"][0], "ins_shap": out["shap"][1],
@@ -80,8 +81,12 @@ def deletion_insertion(booster: lgb.Booster, X: pd.DataFrame, sv: pd.DataFrame, 
 
 
 def inject_promo(panel: pd.DataFrame, rate: float = 0.2, effect: float = 0.3, seed: int = 7) -> pd.DataFrame:
-    """Copy of the panel with a random `test_promo` flag and true demand scaled by (1 + effect) on flagged days.
-    The original (unscaled) demand is kept as `demand_no_promo` so the true uplift per row is known."""
+    """Return a copy of `panel` with a synthetic `test_promo` flag and demand scaled by `(1 + effect)` on flagged rows.
+
+    Scales both `sale_amount` and `hours_sale` so subsequent hourly stockout
+    censoring stays consistent with daily totals, while preserving the unscaled
+    baseline in `demand_no_promo`.
+    """
     p = panel.copy()
     rng = np.random.default_rng(seed)
     flag = rng.random(len(p)) < rate
@@ -95,11 +100,11 @@ def inject_promo(panel: pd.DataFrame, rate: float = 0.2, effect: float = 0.3, se
 
 def train_injected(panel: pd.DataFrame, cfg: dict, rate: float = 0.2, effect: float = 0.3, seed: int = 7,
                    cond_cfg=None, conditions: str = "ABC"):
-    """Inject the synthetic promo, rebuild conditions A/B/C and their features from the modified truth, and train
-    each model with the frozen config plus `test_promo`.
-    `cond_cfg` = masking configuration (default ConditionConfig()); `conditions` = which models to train.
-    Returns (boosters {c: Booster}, test rows with test_promo and demand_no_promo, condition table, injected panel).
-    Test inputs are identical across conditions, so any condition's test rows serve all three."""
+    """Inject `test_promo`, rebuild conditions and features, and train LightGBM models for `conditions`.
+
+    Returns `(boosters, test_df, conditions_df, injected_panel)`. Because eval
+    inputs are identical across conditions, a single test frame is returned.
+    """
     from blindspot.conditions import ConditionConfig, build_conditions
     from blindspot.features import FEATURES, build_features
     from blindspot.model import split_rows, train_final
@@ -119,7 +124,10 @@ def train_injected(panel: pd.DataFrame, cfg: dict, rate: float = 0.2, effect: fl
 
 
 def whatif_uplift(booster: lgb.Booster, X: pd.DataFrame, features: list[str], feature: str = PROMO_FEATURE) -> np.ndarray:
-    """Model's what-if effect of switching `feature` from 0 to 1 on each row (no clipping)."""
+    """Forecast difference when toggling `feature` from 0 to 1 on each row.
+
+    Forecasts are clipped at 0, as everywhere else in the project (`model.predict`, `whatif.whatif`), so the
+    uplift reported here equals the one used in Steps 9-11."""
     on, off = X[features].copy(), X[features].copy()
     on[feature], off[feature] = 1, 0
-    return booster.predict(on) - booster.predict(off)
+    return np.clip(booster.predict(on), 0, None) - np.clip(booster.predict(off), 0, None)

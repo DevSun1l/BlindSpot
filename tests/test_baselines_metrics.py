@@ -1,4 +1,4 @@
-"""Step 5 tests: metrics, Croston-SBA and the SSA port on small synthetic data."""
+"""Unit tests for forecast evaluation metrics, Croston-SBA, and the SSA baseline."""
 import numpy as np
 import pandas as pd
 
@@ -11,19 +11,20 @@ def test_evaluate_known_values():
                        "is_clean_day": [1, 1, 1, 0], "sales_true": [1.0, 3.0, 2.0, 99.0],
                        "p": [2.0, 3.0, 1.0, 0.0]})
     m = evaluate(df, "p").set_index("group")
-    # d1: |err| = 1+0, y = 4 -> wape .25, wpe +.25 ; d2 (only clean row): |err| 1, y 2 -> wape .5, wpe -.5
+    # d1: |err|=1, y=4 (WAPE=0.25, WPE=+0.25); d2 clean row: |err|=1, y=2 (WAPE=0.5, WPE=-0.5).
     assert np.isclose(m.loc["all", "wape"], 0.375)
     assert np.isclose(m.loc["all", "wpe"], -0.125)
-    assert m.loc["all", "n_days"] == 3                         # stockout row excluded
+    assert m.loc["all", "n_days"] == 3  # Stockout row on d2 is excluded
 
 
 def test_bootstrap_ci_contains_point_estimate():
     rng = np.random.default_rng(0)
-    df = pd.DataFrame({"store_id": rng.integers(0, 50, 2000), "is_clean_day": 1,
-                       "sales_true": rng.poisson(3, 2000).astype(float) + 1})
-    df["p"] = df.sales_true * rng.normal(1, 0.3, 2000)
+    df = pd.DataFrame({"store_id": rng.integers(0, 50, 2000), "dt": rng.integers(0, 7, 2000), "is_clean_day": 1,
+                       "sales_group": "high", "sales_true": rng.poisson(3, 2000).astype(float) + 1})
+    # Daily error levels differ, so pooled WAPE and the protocol's mean-of-daily WAPE differ too.
+    df["p"] = df.sales_true * rng.normal(1, 0.1 + 0.08 * df.dt, 2000)
     lo, hi = bootstrap_wape(df, "p")
-    point = (df.p - df.sales_true).abs().sum() / df.sales_true.sum()
+    point = evaluate(df, "p").set_index("group").loc["all", "wape"]       # the statistic that is reported
     assert lo < point < hi
 
 
@@ -31,7 +32,8 @@ def test_croston_sba_constant_demand_and_no_lookahead():
     y = np.full((1, 30), 4.0)
     f = croston_sba(y, alpha=0.1)
     assert np.isnan(f[0, 0])
-    assert np.allclose(f[0, 1:], 4.0 * (1 - 0.05))            # SBA factor (1 - alpha/2)
+    # Constant demand with inter-arrival 1 converges to demand * (1 - alpha/2).
+    assert np.allclose(f[0, 1:], 4.0 * (1 - 0.05))
     y2 = y.copy()
     y2[0, 20] = 100
     f2 = croston_sba(y2)
