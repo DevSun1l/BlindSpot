@@ -39,4 +39,4 @@ What-if = forecast with test_promo=1 minus forecast with test_promo=0, compared 
 
 ALL CHECKS PASSED
 
-Done in 50s.
+Done in 49s.

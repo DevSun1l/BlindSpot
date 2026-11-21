@@ -7,13 +7,13 @@ Scored on 20,996 clean test days of the 5,000-series sample. Metrics are average
 
 | model | horizon | trained on | WAPE (95% CI) | WPE (bias) | MAE | RMSE |
 |---|---|---|---|---|---|---|
-| naive | next-day | all | 0.419 (0.405-0.427) | -0.005 | 0.473 | 0.765 |
-| seasonal_naive | next-day | all | 0.412 (0.401-0.422) | -0.010 | 0.465 | 0.759 |
+| naive | next-day | all | 0.419 (0.409-0.430) | -0.005 | 0.473 | 0.765 |
+| seasonal_naive | next-day | all | 0.412 (0.402-0.423) | -0.010 | 0.465 | 0.759 |
 | moving_avg_7 | next-day | all | 0.327 (0.318-0.335) | -0.009 | 0.371 | 0.592 |
-| croston_sba | next-day | all | 0.335 (0.328-0.344) | -0.096 | 0.382 | 0.638 |
-| ssa | week-ahead | A | 0.331 (0.322-0.338) | -0.110 | 0.375 | 0.645 |
-| ssa | week-ahead | B | 0.365 (0.357-0.371) | -0.212 | 0.414 | 0.734 |
-| ssa | week-ahead | C | 0.343 (0.333-0.351) | -0.106 | 0.388 | 0.666 |
+| croston_sba | next-day | all | 0.335 (0.327-0.343) | -0.096 | 0.382 | 0.638 |
+| ssa | week-ahead | A | 0.331 (0.323-0.339) | -0.110 | 0.375 | 0.645 |
+| ssa | week-ahead | B | 0.365 (0.358-0.372) | -0.212 | 0.414 | 0.734 |
+| ssa | week-ahead | C | 0.343 (0.334-0.352) | -0.106 | 0.388 | 0.666 |
 
 ## By sales group (WAPE / WPE)
 
@@ -37,4 +37,4 @@ Scored on 20,996 clean test days of the 5,000-series sample. Metrics are average
 
 ALL CHECKS PASSED
 
-Done in 11s.
+Done in 13s.

@@ -4,14 +4,14 @@
 
 | step | status | time | log |
 |---|---|---|---|
-| step3_build_conditions | OK | 12s | logs/step3_build_conditions.log |
-| step4_build_features | OK | 29s | logs/step4_build_features.log |
-| step5_baselines | OK | 13s | logs/step5_baselines.log |
+| step3_build_conditions | OK | 13s | logs/step3_build_conditions.log |
+| step4_build_features | OK | 36s | logs/step4_build_features.log |
+| step5_baselines | OK | 15s | logs/step5_baselines.log |
 | step6b_train | OK | 16s | logs/step6b_train.log |
 | step7_shap | OK | 26s | logs/step7_shap.log |
-| step8_faithfulness | OK | 51s | logs/step8_faithfulness.log |
-| step9_whatif | OK | 43s | logs/step9_whatif.log |
-| step10_inventory | OK | 14s | logs/step10_inventory.log |
+| step8_faithfulness | OK | 54s | logs/step8_faithfulness.log |
+| step9_whatif | OK | 50s | logs/step9_whatif.log |
+| step10_inventory | OK | 17s | logs/step10_inventory.log |
 
 - [PASS] all 8 pipeline steps ran and reported no failed checks
 ## 2. Multi-seed experiment
@@ -74,4 +74,4 @@ Each seed redraws which training days are masked, the simulated stockout hours, 
 
 ALL CHECKS PASSED
 
-Done in 429s.
+Done in 453s.

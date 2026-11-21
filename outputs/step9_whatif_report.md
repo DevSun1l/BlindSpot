@@ -85,4 +85,4 @@ Recovery by sales group:
 
 ALL CHECKS PASSED
 
-Done in 39s.
+Done in 46s.

@@ -61,4 +61,4 @@ Correlation of each sales feature with the target (train targets):
 
 ALL CHECKS PASSED
 
-Done in 28s.
+Done in 34s.
