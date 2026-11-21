@@ -29,9 +29,11 @@ def explain_set(test: pd.DataFrame, n: int = 2000, seed: int = 42) -> pd.DataFra
 def shap_values(booster: lgb.Booster, X: pd.DataFrame, features: list[str] | None = None) -> tuple[pd.DataFrame, float]:
     """Compute exact TreeSHAP values and scalar base value for `X`."""
     cols = features or FEATURES
-    ex = shap.TreeExplainer(booster, feature_perturbation="tree_path_dependent")
+    # Models with a constant offset (mitigation.ShiftedBooster) expose the tree model as `.booster`; the offset
+    # moves only the base value, never the SHAP values.
+    ex = shap.TreeExplainer(getattr(booster, "booster", booster), feature_perturbation="tree_path_dependent")
     sv = ex.shap_values(X[cols])
-    base = float(np.ravel(ex.expected_value)[0])
+    base = float(np.ravel(ex.expected_value)[0]) + getattr(booster, "shift", 0.0)
     return pd.DataFrame(sv, columns=cols, index=X.index), base
 
 

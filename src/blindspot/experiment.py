@@ -56,14 +56,24 @@ def worse(metric: str, x: float, y: float) -> bool:
     return abs(x - 1) > abs(y - 1)
 
 
-def _models(cond: pd.DataFrame, panel: pd.DataFrame, c: str, cfg: dict) -> dict:
-    """Train the final booster on all train rows plus a fit-only booster for out-of-sample validation residuals."""
-    f = build_features(cond, panel, c)
+def fit_bundle(f: pd.DataFrame, cfg: dict, trainer=train_final, features: list[str] | None = None,
+               resid_rows=None) -> dict:
+    """Train the final model on all train rows plus a fit-only model for out-of-sample validation residuals.
+
+    `trainer(params, n_rounds, df, features)` returns an object with `.predict`; `resid_rows(valid)` optionally
+    selects which validation rows feed the residuals (default: all).
+    """
     fit, valid, train, test = split_rows(f)
-    final = train_final(cfg["params"], cfg["n_rounds"], train)
-    fit_only = train_final(cfg["params"], cfg["n_rounds"], fit)
-    return {"booster": final, "test": test, "resid": valid.target.to_numpy() - predict(fit_only, valid),
-            "resid_group": valid.sales_group.astype(str).to_numpy()}
+    final = trainer(cfg["params"], cfg["n_rounds"], train, features)
+    fit_only = trainer(cfg["params"], cfg["n_rounds"], fit, features)
+    v = valid if resid_rows is None else valid[resid_rows(valid)]
+    return {"booster": final, "test": test, "resid": v.target.to_numpy() - predict(fit_only, v, features),
+            "resid_group": v.sales_group.astype(str).to_numpy()}
+
+
+def _models(cond: pd.DataFrame, panel: pd.DataFrame, c: str, cfg: dict) -> dict:
+    """Model bundle for condition `c` (see `fit_bundle`)."""
+    return fit_bundle(build_features(cond, panel, c), cfg)
 
 
 def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | None = None, explain_rows: int = 2000,
@@ -88,6 +98,23 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
             m[c] = _models(cond, panel, c, cfg)
             if c == "A":
                 a_cache["A"] = m[c]
+    need = "BC" if "A_inj" in a_cache else "ABC"
+    inj, t_inj, _, _ = train_injected(panel, cfg, rate=rate, effect=effect, cond_cfg=cc, conditions=need)
+    if "A_inj" in a_cache:
+        inj["A"] = a_cache["A_inj"]
+    else:
+        a_cache["A_inj"] = inj["A"]
+    return score_models(m, inj, t_inj, mask_seed, explain_rows, effect, cu, co)
+
+
+def score_models(m: dict, inj: dict, t_inj: pd.DataFrame, mask_seed: int, explain_rows: int = 2000,
+                 effect: float = 0.3, cu: float = CU, co: float = CO) -> pd.DataFrame:
+    """Compute every headline metric for the model bundles `m` (must include the reference "A").
+
+    `inj` holds the matching models trained with the injected `test_promo` feature and `t_inj` their test rows.
+    Returns a long-format DataFrame with columns `seed`, `condition`, `metric`, `value`.
+    """
+    names = list(m)
     test = m["A"]["test"]
     clean = test[test.is_clean_day == 1].copy()
     rows: list[tuple] = []
@@ -96,7 +123,7 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
         rows.append((mask_seed, c, k, float(v)))
 
     # Forecast accuracy on clean test days.
-    for c in "ABC":
+    for c in names:
         clean[f"pred_{c}"] = predict(m[c]["booster"], clean)
         e = evaluate(clean, f"pred_{c}").set_index("group").loc["all"]
         add(c, "wape", e.wape)
@@ -104,11 +131,11 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
 
     # SHAP explanation stability and importance-share shifts.
     X = explain_set(test, n=explain_rows)
-    sv = {c: shap_values(m[c]["booster"], X)[0] for c in "ABC"}
-    share = {c: importance_share(sv[c]) for c in "ABC"}
-    gshare = {c: grouped(sv[c]).abs().mean() for c in "ABC"}
+    sv = {c: shap_values(m[c]["booster"], X)[0] for c in names}
+    share = {c: importance_share(sv[c]) for c in names}
+    gshare = {c: grouped(sv[c]).abs().mean() for c in names}
     gshare = {c: g / g.sum() for c, g in gshare.items()}
-    for c in "ABC":
+    for c in names:
         add(c, "row_spearman_vs_A", local_stability(sv["A"], sv[c]).spearman.mean())
         add(c, "discount_share_change", share[c]["discount"] / share["A"]["discount"] - 1)
         add(c, "activity_share_change", share[c]["activity_flag"] / share["A"]["activity_flag"] - 1)
@@ -116,8 +143,8 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
 
     # Real-lever promotion what-if uplift relative to condition A.
     base, scen = SCENARIOS[PROMO_SCENARIO]
-    up = {c: whatif(m[c]["booster"], clean, base, scen).uplift.sum() for c in "ABC"}
-    for c in "ABC":
+    up = {c: whatif(m[c]["booster"], clean, base, scen).uplift.sum() for c in names}
+    for c in names:
         add(c, "promo_uplift_vs_A", up[c] / up["A"])
 
     # Everyday newsvendor ordering calibrated on each condition's own validation residuals.
@@ -125,7 +152,7 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
     g = clean.sales_group.astype(str).to_numpy()
     D = clean.sales_true.to_numpy()
     safety = {}
-    for c in "ABC":
+    for c in names:
         safety[c] = safety_quantiles(m[c]["resid"], m[c]["resid_group"], cr)
         s = summarize(outcomes(order_quantity(clean[f"pred_{c}"].to_numpy(), g, safety[c]), D, cu, co))
         add(c, "cost_per_demand", s["cost_per_demand"])
@@ -133,18 +160,12 @@ def run_seed(panel: pd.DataFrame, mask_seed: int, cfg: dict, a_cache: dict | Non
         add(c, "stockout_rate", s["stockout_rate"])
 
     # Injected promotion recovery and incremental promo-day ordering cost.
-    need = "BC" if "A_inj" in a_cache else "ABC"
-    inj, t_inj, _, _ = train_injected(panel, cfg, rate=rate, effect=effect, cond_cfg=cc, conditions=need)
-    if "A_inj" in a_cache:
-        inj["A"] = a_cache["A_inj"]
-    else:
-        a_cache["A_inj"] = inj["A"]
     w = t_inj[t_inj.is_clean_day == 1]
     feats = FEATURES + [PROMO_FEATURE]
     true_up = (w.demand_no_promo * effect).to_numpy()
     Dp = w.demand_no_promo.to_numpy() * (1 + effect)
     gp = w.sales_group.astype(str).to_numpy()
-    for c in "ABC":
+    for c in names:
         r = whatif(inj[c], w, {PROMO_FEATURE: 0}, {PROMO_FEATURE: 1}, feats)
         add(c, "injected_recovery", r.uplift.sum() / true_up.sum())
         cw = summarize(outcomes(order_quantity(r.scenario.to_numpy(), gp, safety[c]), Dp, cu, co))["cost_per_demand"]
