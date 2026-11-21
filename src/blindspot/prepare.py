@@ -107,6 +107,38 @@ def draw_sample(tab: pd.DataFrame, n: int = DEFAULT_SAMPLE_SIZE, seed: int = SEE
     return sample.sort_values("series_id").reset_index(drop=True)
 
 
+def resize_sample(tab: pd.DataFrame, base: pd.DataFrame, n: int, seed: int = SEED) -> pd.DataFrame:
+    """Return a stratified sample of size `n` nested with `base` (the study sample).
+
+    Smaller than `base`: a stratified subset of `base`. Larger: `base` plus a stratified draw from the remaining
+    eligible series. So samples of different sizes share series and differ only in size, not composition.
+    """
+    if n == len(base):
+        return base.sort_values("series_id").reset_index(drop=True)
+    if n < len(base):
+        return draw_sample(base.assign(eligible=True), n=n, seed=seed)
+    rest = tab[tab.eligible & ~tab.series_id.isin(base.series_id)]
+    if n - len(base) > len(rest):
+        raise ValueError(f"only {len(base) + len(rest):,} eligible series, cannot draw {n:,}")
+    extra = draw_sample(rest, n=n - len(base), seed=seed)
+    return pd.concat([base, extra]).sort_values("series_id").reset_index(drop=True)
+
+
+def nested_samples(tab: pd.DataFrame, base: pd.DataFrame, sizes: list[int], seed: int = SEED) -> dict[int, pd.DataFrame]:
+    """Return {size: sample} where every smaller sample is inside every larger one and `base` is kept as is.
+
+    Sizes below `base` are drawn downward (each from the next larger one); sizes above it upward.
+    """
+    out = {len(base): resize_sample(tab, base, len(base), seed)}
+    for n in sorted((n for n in sizes if n < len(base)), reverse=True):
+        parent = out[min(k for k in out if k > n)]
+        out[n] = resize_sample(tab, parent, n, seed)
+    for n in sorted(n for n in sizes if n > len(base)):
+        parent = out[max(k for k in out if k < n)]
+        out[n] = resize_sample(tab, parent, n, seed)
+    return {n: out[n] for n in sorted(sizes)}
+
+
 def load_panel(sample_only: bool = True) -> pd.DataFrame:
     """Load the processed panel, optionally filtered to the sampled series."""
     panel = pd.read_parquet(PROCESSED_DIR / "panel.parquet")
